@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Star, CheckCircle, Copy, ExternalLink, Sparkles, AlertCircle, ArrowLeft, HeartHandshake, ShieldCheck } from "lucide-react";
+import { getBusinessQuickTags } from "@/lib/niches";
 
 interface BusinessData {
   id: string;
@@ -94,15 +95,10 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
     }
   };
 
-  // Quick tags for positive reviews
-  const quickTags = [
-    "Friendly & Attentive Staff",
-    "Super Clean & Welcoming",
-    "Fast, Efficient Service",
-    "High Quality & Care",
-    "Fair & Transparent Pricing",
-    "Great Atmosphere",
-  ];
+  // Dynamic quick tags and placeholder tailored to business category/niche
+  const { tags: quickTags, placeholder: nichePlaceholder } = useMemo(() => {
+    return getBusinessQuickTags(business.category, business.keywords);
+  }, [business.category, business.keywords]);
 
   const handleToggleTag = (tag: string) => {
     let nextTags: string[];
@@ -112,15 +108,23 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
       nextTags = [...selectedTags, tag];
     }
     setSelectedTags(nextTags);
-
-    if (nextTags.length > 0 && !positiveComment) {
-      setPositiveComment(`Great experience! Particularly impressed by the ${nextTags.join(" and ").toLowerCase()}.`);
-    }
   };
 
-  // Enhance positive review with business keywords
+  // Enhance positive review with business keywords & selected niche tags
   const handleEnhanceReview = async () => {
-    const rawComment = positiveComment.trim() || selectedTags.join(", ") || "Everything was great, loved the service and atmosphere!";
+    // Merge user written input with any selected niche tags
+    let rawComment = positiveComment.trim();
+    if (selectedTags.length > 0) {
+      const tagsNote = `Particularly impressed by the ${selectedTags.join(" and ").toLowerCase()}.`;
+      if (rawComment) {
+        rawComment = `${rawComment} ${tagsNote}`;
+      } else {
+        rawComment = `Great experience! ${tagsNote}`;
+      }
+    } else if (!rawComment) {
+      rawComment = "Everything was wonderful, loved the quality, service and atmosphere!";
+    }
+
     setGeneratingAI(true);
     try {
       const res = await fetch("/api/review/enhance", {
@@ -420,7 +424,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
               <h2 className="text-lg font-bold text-slate-800 mb-1">What did you enjoy most?</h2>
               <p className="text-xs text-slate-500 mb-4">Tap any highlights or write your thoughts below:</p>
 
-              {/* Quick Tags */}
+              {/* Quick Tags - Dynamically styled & customized by niche */}
               <div className="flex flex-wrap gap-2 mb-4">
                 {quickTags.map((tag) => {
                   const isSelected = selectedTags.includes(tag);
@@ -429,13 +433,13 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
                       key={tag}
                       type="button"
                       onClick={() => handleToggleTag(tag)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                      className={`text-xs sm:text-[13px] px-3.5 py-2 rounded-full border transition-all text-left flex items-center gap-1.5 active:scale-95 ${
                         isSelected
-                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs font-semibold"
+                          : "bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 font-medium"
                       }`}
                     >
-                      {tag}
+                      <span>{tag}</span>
                     </button>
                   );
                 })}
@@ -446,8 +450,8 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
                   rows={3}
                   value={positiveComment}
                   onChange={(e) => setPositiveComment(e.target.value)}
-                  placeholder="Tell us what you loved (e.g. loved the food, attentive staff, fast service)..."
-                  className="w-full text-sm rounded-xl border border-slate-200 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 placeholder-slate-400"
+                  placeholder={nichePlaceholder}
+                  className="w-full text-sm rounded-2xl border border-slate-200 p-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 placeholder-slate-400 shadow-2xs leading-relaxed resize-y"
                 />
               </div>
 

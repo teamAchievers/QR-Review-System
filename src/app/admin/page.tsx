@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   RotateCw,
 } from "lucide-react";
+import { NICHE_CONFIGS } from "@/lib/niches";
 
 interface BusinessWithUser {
   id: string;
@@ -772,13 +773,27 @@ export default function MasterAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Category</label>
-                    <input
-                      type="text"
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Niche</label>
+                    <select
                       value={editFormData.category}
-                      onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        const matched = NICHE_CONFIGS.find((n) => n.id === newCat || n.name === newCat);
+                        setEditFormData({
+                          ...editFormData,
+                          category: newCat,
+                          keywords: !editFormData.keywords && matched ? matched.defaultKeywords : editFormData.keywords,
+                        });
+                      }}
                       className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      <option value="">-- Select Industry Niche --</option>
+                      {NICHE_CONFIGS.map((n) => (
+                        <option key={n.id} value={n.name}>
+                          {n.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -1002,14 +1017,27 @@ export default function MasterAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Category</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Restaurant, Dental, Salon"
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Niche</label>
+                    <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        const matched = NICHE_CONFIGS.find((n) => n.id === newCat || n.name === newCat);
+                        setFormData({
+                          ...formData,
+                          category: newCat,
+                          keywords: matched ? matched.defaultKeywords : formData.keywords,
+                        });
+                      }}
                       className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      <option value="">-- Select Industry Niche --</option>
+                      {NICHE_CONFIGS.map((n) => (
+                        <option key={n.id} value={n.name}>
+                          {n.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

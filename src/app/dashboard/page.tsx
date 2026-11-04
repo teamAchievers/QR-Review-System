@@ -24,7 +24,9 @@ import {
   AlertCircle,
   AlertOctagon,
   Lock,
+  Tag,
 } from "lucide-react";
+import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
 
 interface BusinessProfile {
   id: string;
@@ -822,6 +824,50 @@ export default function BusinessDashboardPage() {
             )}
 
             <form onSubmit={handleSaveSettings} className="space-y-5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">
+                    Business Category / Niche <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      const matchedNiche = NICHE_CONFIGS.find((n) => n.id === newCat || n.name === newCat);
+                      setFormData({
+                        ...formData,
+                        category: newCat,
+                        keywords: !formData.keywords.trim() && matchedNiche ? matchedNiche.defaultKeywords : formData.keywords,
+                      });
+                    }}
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Select Industry Niche --</option>
+                    {NICHE_CONFIGS.map((n) => (
+                      <option key={n.id} value={n.name}>
+                        {n.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Tailors customer review chips and keyword suggestions to your specific industry.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">
+                    City / Location
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="e.g. Seattle, WA or Downtown"
+                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
                   Google Review Direct Link (URL) <span className="text-rose-500">*</span>
@@ -850,9 +896,26 @@ export default function BusinessDashboardPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Target SEO Keywords for Positive Reviews <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-800">
+                    Target SEO Keywords for Positive Reviews <span className="text-rose-500">*</span>
+                  </label>
+                  {formData.category && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matched = NICHE_CONFIGS.find((n) => n.id === formData.category || n.name === formData.category);
+                        if (matched) {
+                          setFormData({ ...formData, keywords: matched.defaultKeywords });
+                        }
+                      }}
+                      className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Reset to Niche Suggestions
+                    </button>
+                  )}
+                </div>
                 <textarea
                   rows={3}
                   required
@@ -861,6 +924,27 @@ export default function BusinessDashboardPage() {
                   placeholder="e.g. authentic wood-fired pizza, handmade pasta, best restaurant in downtown"
                   className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
                 />
+              </div>
+
+              {/* Live Preview of Niche Chips */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs mb-2">
+                  <Tag className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Preview: What Your Customers See On Scan (High Rating Highlights)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Customers tapping 4 or 5 stars will be prompted to pick from these highlights before generating their Google review:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {getBusinessQuickTags(formData.category, formData.keywords).tags.map((t) => (
+                    <span
+                      key={t}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-slate-700 border border-slate-200 shadow-2xs"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end">
