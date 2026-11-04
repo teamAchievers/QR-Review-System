@@ -34,6 +34,9 @@ import {
   Eye,
   EyeOff,
   Key,
+  Printer,
+  Download,
+  Star,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 import { convertFromInr, convertInrToUsd, convertUsdToInr, formatCurrency, CURRENCY_METADATA, isCurrencyStrongerThanInr } from "@/lib/currency";
@@ -3873,6 +3876,256 @@ export default function MasterAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ================= ADMIN VIEW QR & STANDEE STUDIO MODAL ================= */}
+      {qrModalOpen && qrModalBusiness && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-8 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700 mb-6">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm"
+                  style={{ backgroundColor: qrModalBusiness.primaryColor || "#2563eb" }}
+                >
+                  {qrModalBusiness.name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>{qrModalBusiness.name}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-mono">
+                      /{qrModalBusiness.slug}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Live QR Code &amp; Table Standee Studio for this business
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setQrModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Platform Switcher (if TripAdvisor is enabled for this business) */}
+            {qrModalBusiness.tripadvisorEnabled !== false && (
+              <div className="flex items-center gap-2 mb-6 p-1.5 bg-slate-900 rounded-2xl border border-slate-700 max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setQrModalPlatform("google")}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    qrModalPlatform === "google"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>Google Review QR &amp; Standee</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQrModalPlatform("tripadvisor")}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    qrModalPlatform === "tripadvisor"
+                      ? "bg-[#00aa6c] text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>TripAdvisor QR &amp; Standee</span>
+                </button>
+              </div>
+            )}
+
+            {/* 2-Column Studio Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: QR Code */}
+              <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-emerald-400" />
+                      <span>{qrModalPlatform === "tripadvisor" ? "TripAdvisor QR Code" : "Google Review QR Code"}</span>
+                    </h4>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      qrModalPlatform === "tripadvisor"
+                        ? "bg-emerald-950 text-emerald-400 border-emerald-800"
+                        : "bg-blue-950 text-blue-400 border-blue-800"
+                    }`}>
+                      Level H (~30% Recovery)
+                    </span>
+                  </div>
+
+                  {/* QR Image Frame */}
+                  <div className="p-4 bg-white rounded-2xl flex flex-col items-center justify-center shadow-inner my-3">
+                    {qrModalLoading ? (
+                      <div className="w-48 h-48 bg-slate-200 animate-pulse rounded-xl" />
+                    ) : (
+                      <img
+                        src={qrModalPlatform === "tripadvisor" ? (qrModalTaDataUrl || qrModalDataUrl) : qrModalDataUrl}
+                        alt="Branded QR"
+                        className="w-48 h-auto rounded-lg shadow-xs"
+                      />
+                    )}
+                  </div>
+
+                  {/* Funnel Link Bar */}
+                  <div className="mt-3 p-2 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono text-slate-300 truncate">
+                      {typeof window !== "undefined" ? window.location.origin : ""}/r/{qrModalBusiness.slug}{qrModalPlatform === "tripadvisor" ? "?platform=tripadvisor" : ""}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `${window.location.origin}/r/${qrModalBusiness.slug}${qrModalPlatform === "tripadvisor" ? "?platform=tripadvisor" : ""}`;
+                          navigator.clipboard.writeText(url);
+                          setQrModalCopied(true);
+                          setTimeout(() => setQrModalCopied(false), 2000);
+                        }}
+                        className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-[10px] font-semibold flex items-center gap-1"
+                      >
+                        {qrModalCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{qrModalCopied ? "Copied" : "Copy"}</span>
+                      </button>
+                      <a
+                        href={`/r/${qrModalBusiness.slug}${qrModalPlatform === "tripadvisor" ? "?platform=tripadvisor" : ""}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 text-slate-400 hover:text-white"
+                        title="Open customer funnel"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Download Actions */}
+                <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-700/60">
+                  <button
+                    type="button"
+                    onClick={handleDownloadAdminPng}
+                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PNG</span>
+                  </button>
+                  <a
+                    href={`/api/qr?slug=${qrModalBusiness.slug}&platform=${qrModalPlatform}&format=svg`}
+                    download={`qr-${qrModalBusiness.slug}-${qrModalPlatform}.svg`}
+                    className="py-2.5 px-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors text-center"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download SVG</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Right Column: Table Tent & Standee Preview */}
+              <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                      <Printer className="w-4 h-4 text-blue-400" />
+                      <span>Printable Standee Preview</span>
+                    </h4>
+                    <span className="text-[10px] text-slate-400">A6 / Table Tent Format</span>
+                  </div>
+
+                  {/* Standee Mockup Container */}
+                  <div className="bg-white border-2 border-slate-300 rounded-2xl p-5 text-center shadow-lg relative overflow-hidden my-3 max-w-[280px] mx-auto">
+                    <div
+                      className={`absolute top-0 left-0 right-0 h-2.5 ${
+                        qrModalPlatform === "tripadvisor"
+                          ? "bg-gradient-to-r from-[#00aa6c] to-emerald-700"
+                          : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                      }`}
+                    />
+
+                    <div
+                      className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-lg mb-2 shadow-xs"
+                      style={{ backgroundColor: qrModalPlatform === "tripadvisor" ? "#00aa6c" : (qrModalBusiness.primaryColor || "#2563eb") }}
+                    >
+                      {qrModalBusiness.name.charAt(0)}
+                    </div>
+
+                    <h5 className="font-extrabold text-base text-slate-900 leading-tight truncate">
+                      {qrModalBusiness.name}
+                    </h5>
+                    {qrModalBusiness.city && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">{qrModalBusiness.city}</p>
+                    )}
+
+                    {qrModalPlatform === "tripadvisor" ? (
+                      <div className="flex justify-center items-center gap-1 my-2">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <span key={s} className="w-3 h-3 rounded-full bg-[#00aa6c] inline-block" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex justify-center gap-1 my-2">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                    )}
+
+                    <h6 className="text-xs font-bold text-slate-800">
+                      {qrModalPlatform === "tripadvisor" ? "Review Us on TripAdvisor" : "How Was Your Visit?"}
+                    </h6>
+                    <p className="text-[9px] text-slate-500 my-1">
+                      Scan with your camera to share feedback
+                    </p>
+
+                    <div className="p-1.5 bg-slate-50 border border-slate-200 rounded-xl inline-block my-1.5">
+                      {qrModalLoading ? (
+                        <div className="w-28 h-28 bg-slate-200 animate-pulse rounded-lg" />
+                      ) : (
+                        <img
+                          src={qrModalPlatform === "tripadvisor" ? (qrModalTaDataUrl || qrModalDataUrl) : qrModalDataUrl}
+                          alt="Standee QR"
+                          className="w-28 h-auto rounded-lg"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <span className={`text-[9px] font-semibold py-0.5 px-2 rounded-full inline-block ${
+                        qrModalPlatform === "tripadvisor"
+                          ? "text-emerald-800 bg-emerald-50 border border-emerald-200"
+                          : "text-slate-600 bg-slate-100"
+                      }`}>
+                        {qrModalPlatform === "tripadvisor" ? "🟢 Official TripAdvisor Review" : "⚡ 15-second feedback"}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 pt-1.5 border-t border-slate-100 text-[8px] text-slate-400 font-medium">
+                      Powered by <strong className="text-slate-600">{qrModalBusiness.poweredByText || "Unbox Studio"}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Print Standee Action */}
+                <div className="pt-3 border-t border-slate-700/60 flex items-center justify-between gap-3">
+                  <span className="text-[11px] text-slate-400">
+                    High-res print layout
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePrintAdminStandee}
+                    className="py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Standee Now</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
