@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
+import { convertInrToUsd, formatCurrency } from "@/lib/currency";
 
 interface BusinessProfile {
   id: string;
@@ -123,6 +124,8 @@ export default function BusinessDashboardPage() {
 
   // Settings form state
   const [savingSettings, setSavingSettings] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState<"INR" | "USD">("INR");
+  const getDisplayPrice = (baseInr: number) => selectedCurrency === "USD" ? convertInrToUsd(baseInr, 85, 1.5) : baseInr;
   const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [formData, setFormData] = useState({
@@ -212,7 +215,7 @@ export default function BusinessDashboardPage() {
       const orderRes = await fetch("/api/payment/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ targetCurrency: selectedCurrency }),
       });
 
       const orderData = await orderRes.json();
@@ -719,7 +722,7 @@ export default function BusinessDashboardPage() {
                   </span>
                 </div>
                 <p className="text-xs text-amber-800 mt-1">
-                  Your {subscriptionState.planTier} Plan renewal of <strong>₹{subscriptionState.planPrice}</strong> is due on <strong>{subscriptionState.dueDate ? new Date(subscriptionState.dueDate).toLocaleDateString() : "Due date"}</strong>. Pay now via Razorpay to avoid suspension.
+                  Your {subscriptionState.planTier} Plan renewal of <strong>{formatCurrency(getDisplayPrice(subscriptionState.planPrice), selectedCurrency)}</strong> is due on <strong>{subscriptionState.dueDate ? new Date(subscriptionState.dueDate).toLocaleDateString() : "Due date"}</strong>. Pay now via Razorpay to avoid suspension.
                 </p>
               </div>
             </div>

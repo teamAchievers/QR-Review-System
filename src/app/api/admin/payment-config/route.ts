@@ -13,9 +13,10 @@ export async function GET() {
 
     const settings = await db.systemSetting.findMany({
       where: {
-        key: {
-          startsWith: "payment_",
-        },
+        OR: [
+          { key: { startsWith: "payment_" } },
+          { key: { startsWith: "currency_" } },
+        ],
       },
     });
 
@@ -33,6 +34,8 @@ export async function GET() {
         keySecret: config["payment_key_secret"] || process.env.RAZORPAY_KEY_SECRET || "",
         webhookSecret: config["payment_webhook_secret"] || "",
         currency: config["payment_currency"] || "INR",
+        inrPerUsd: Number(config["currency_inr_per_usd"]) || 85,
+        usdMultiplier: Number(config["currency_usd_multiplier"]) || 1.5,
         manualUpiId: config["payment_manual_upi_id"] || "",
         manualBankDetails: config["payment_manual_bank_details"] || "",
         gracePeriodDays: Number(config["payment_grace_period_days"]) || 7,
@@ -92,6 +95,8 @@ export async function POST(req: NextRequest) {
       keySecret = "",
       webhookSecret = "",
       currency = "INR",
+      inrPerUsd = 85,
+      usdMultiplier = 1.5,
       manualUpiId = "",
       manualBankDetails = "",
       gracePeriodDays = 7,
@@ -105,6 +110,8 @@ export async function POST(req: NextRequest) {
       { key: "payment_key_secret", value: String(keySecret).trim() },
       { key: "payment_webhook_secret", value: String(webhookSecret).trim() },
       { key: "payment_currency", value: String(currency).trim() },
+      { key: "currency_inr_per_usd", value: String(inrPerUsd) },
+      { key: "currency_usd_multiplier", value: String(usdMultiplier) },
       { key: "payment_manual_upi_id", value: String(manualUpiId).trim() },
       { key: "payment_manual_bank_details", value: String(manualBankDetails).trim() },
       { key: "payment_grace_period_days", value: String(gracePeriodDays) },
@@ -120,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Payment configuration saved successfully!",
+      message: "Payment and currency configuration saved successfully!",
     });
   } catch (err: any) {
     console.error("Save payment config error:", err);

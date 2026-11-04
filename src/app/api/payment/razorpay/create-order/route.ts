@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { evaluateSubscription } from "@/lib/subscription";
+import { convertInrToUsd } from "@/lib/currency";
 import Razorpay from "razorpay";
 
 export async function POST(req: NextRequest) {
@@ -11,9 +12,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const { targetBusinessId, targetCurrency } = body;
+
     let businessId = session.businessId;
     if (!businessId && session.role === "SUPER_ADMIN") {
-      const { targetBusinessId } = await req.json().catch(() => ({}));
       businessId = targetBusinessId || (await db.business.findFirst())?.id || null;
     }
 
@@ -30,8 +33,22 @@ export async function POST(req: NextRequest) {
     }
 
     const sub = evaluateSubscription(business);
-    const amountInCurrency = sub.planPrice || 2999;
-    const amountInSubunits = Math.round(amountInCurrency * 100); // 1 INR = 100 paise
+
+    // Determine currency: if requested by client or set in SystemSettings
+    const dbCurrency = await db.systemSetting.findUnique({ where: { key: "payment_currency" } });
+    const activeCurrency = (targetCurrency || dbCurrency?.value || "INR").toUpperCase();
+
+    // Exchange rate & 1.5x multiplier settings
+    const rateSetting = await db.systemSetting.findUnique({ where: { key: "currency_inr_per_usd" } });
+    const multSetting = await db.systemSetting.findUnique({ where: { key: "currency_usd_multiplier" } });
+    const exchangeRate = Number(rateSetting?.value) || 85;
+    const usdMultiplier = Number(multSetting?.value) || 1.5;
+
+    let finalPrice = sub.planPrice || 2999;
+    if (activeCurrency === "USD") {
+      finalPrice = convertInrToUsd(finalPrice, exchangeRate, usdMultiplier);
+    }
+    const amountInSubunits = Math.round(finalPrice * 100); // paise (INR) or cents (USD)
 
     // Query DB system settings first, fallback to process.env
     const dbKeyId = await db.systemSetting.findUnique({ where: { key: "payment_key_id" } });
@@ -50,12 +67,14 @@ export async function POST(req: NextRequest) {
 
         const order = await razorpay.orders.create({
           amount: amountInSubunits,
-          currency: sub.currency,
+          currency: activeCurrency,
           receipt: `rcpt_${business.id.slice(-6)}_${Date.now()}`,
           notes: {
             businessId: business.id,
             businessName: business.name,
             planTier: sub.planTier,
+            originalInr: String(sub.planPrice),
+            multiplier: String(usdMultiplier),
           },
         });
 
@@ -64,11 +83,12 @@ export async function POST(req: NextRequest) {
           isMock: false,
           orderId: order.id,
           amount: amountInSubunits,
-          currency: sub.currency,
+          currency: activeCurrency,
           keyId: keyId,
           businessName: business.name,
           planTier: sub.planTier,
-          planPrice: amountInCurrency,
+          planPrice: finalPrice,
+          originalPrice: sub.planPrice,
         });
       } catch (err: any) {
         console.warn("Razorpay API order creation failed, falling back to mock mode:", err);
@@ -82,11 +102,12 @@ export async function POST(req: NextRequest) {
       isMock: true,
       orderId: mockOrderId,
       amount: amountInSubunits,
-      currency: sub.currency,
+      currency: activeCurrency,
       keyId: keyId || "rzp_test_demoKey123",
       businessName: business.name,
       planTier: sub.planTier,
-      planPrice: amountInCurrency,
+      planPrice: finalPrice,
+      originalPrice: sub.planPrice,
     });
   } catch (err: any) {
     console.error("Razorpay create-order error:", err);

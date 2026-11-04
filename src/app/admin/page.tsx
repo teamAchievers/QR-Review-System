@@ -36,6 +36,7 @@ import {
   Key,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
+import { convertInrToUsd, convertUsdToInr, formatCurrency } from "@/lib/currency";
 
 interface BusinessWithUser {
   id: string;
@@ -176,6 +177,8 @@ export default function MasterAdminPage() {
     keySecret: "",
     webhookSecret: "",
     currency: "INR",
+    inrPerUsd: 85,
+    usdMultiplier: 1.5,
     manualUpiId: "",
     manualBankDetails: "",
     gracePeriodDays: 7,
@@ -259,6 +262,8 @@ export default function MasterAdminPage() {
 
   // Plans Management State
   const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [plansPreviewCurrency, setPlansPreviewCurrency] = useState<"INR" | "USD">("INR");
+  const [calcInrInput, setCalcInrInput] = useState<number>(1999);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
@@ -1302,13 +1307,40 @@ export default function MasterAdminPage() {
                   Configure dynamic pricing tiers, monthly/annual fees, and feature sets for client onboarding.
                 </p>
               </div>
-              <button
-                onClick={handleOpenCreatePlan}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 self-start sm:self-auto transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add New Plan</span>
-              </button>
+              <div className="flex items-center gap-3 self-start sm:self-auto">
+                <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl p-1 text-xs">
+                  <span className="text-[11px] text-slate-400 font-semibold px-2">Currency:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPlansPreviewCurrency("INR")}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      plansPreviewCurrency === "INR"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    ₹ INR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlansPreviewCurrency("USD")}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                      plansPreviewCurrency === "USD"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    $ USD (1.5x)
+                  </button>
+                </div>
+                <button
+                  onClick={handleOpenCreatePlan}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Plan</span>
+                </button>
+              </div>
             </div>
 
             {loadingPlans ? (
@@ -1372,15 +1404,23 @@ export default function MasterAdminPage() {
                         <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 mb-5">
                           <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-black text-white">
-                              {p.currency === "INR" ? "₹" : "$"}
-                              {p.monthlyPrice.toLocaleString()}
+                              {plansPreviewCurrency === "USD"
+                                ? formatCurrency(convertInrToUsd(p.monthlyPrice, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier), "USD")
+                                : formatCurrency(p.monthlyPrice, "INR")}
                             </span>
                             <span className="text-xs text-slate-400">/ month</span>
+                            {plansPreviewCurrency === "USD" && (
+                              <span className="text-[10px] text-slate-400 font-normal ml-1">
+                                (Base: ₹{p.monthlyPrice})
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-emerald-400 font-medium mt-1 flex items-center justify-between">
                             <span>
-                              Annual: {p.currency === "INR" ? "₹" : "$"}
-                              {p.annualPrice.toLocaleString()} / yr
+                              Annual:{" "}
+                              {plansPreviewCurrency === "USD"
+                                ? formatCurrency(convertInrToUsd(p.annualPrice, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier), "USD")
+                                : formatCurrency(p.annualPrice, "INR")} / yr
                             </span>
                             <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
                               Save ~17%
@@ -1898,11 +1938,122 @@ export default function MasterAdminPage() {
                 </div>
               </div>
 
-              {/* 3. Dunning & Renewal Policy Rules */}
+              {/* 3. Currency Conversion Engine: INR ↔ USD with 1.5x Multiplier */}
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <span>3. Currency Engine: INR &amp; USD Conversion (1.5x Multiplier)</span>
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Active Multiplier: {paymentConfig.usdMultiplier}x
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  When charging or displaying prices in USD from INR base amounts, the system applies the configured exchange rate and multiplies the value by <strong>{paymentConfig.usdMultiplier}</strong>.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Base Exchange Rate (INR per 1 USD)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">1 USD =</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step="0.01"
+                        value={paymentConfig.inrPerUsd}
+                        onChange={(e) => setPaymentConfig({ ...paymentConfig, inrPerUsd: Number(e.target.value) })}
+                        className="w-28 text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-400">₹ INR</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      USD Conversion Markup Multiplier <span className="text-amber-400">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0.1}
+                        step="0.1"
+                        value={paymentConfig.usdMultiplier}
+                        onChange={(e) => setPaymentConfig({ ...paymentConfig, usdMultiplier: Number(e.target.value) })}
+                        className="w-28 text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold text-amber-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-400">multiplier (Default: 1.5x)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conversion Formula Card */}
+                <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-750 text-xs space-y-3">
+                  <div className="flex items-center justify-between text-slate-300 font-mono text-[11px] bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                    <span><strong>Formula:</strong> USD Price = (INR Amount ÷ {paymentConfig.inrPerUsd}) × {paymentConfig.usdMultiplier}</span>
+                    <span className="text-emerald-400 font-sans font-semibold">1.5x Active</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+                    <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
+                      <div className="text-[10px] text-slate-400">Standee Item</div>
+                      <div className="font-bold text-white text-xs mt-0.5">₹499</div>
+                      <div className="text-emerald-400 font-bold text-xs mt-0.5">
+                        ${convertInrToUsd(499, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier).toFixed(2)} USD
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
+                      <div className="text-[10px] text-slate-400">Starter Plan</div>
+                      <div className="font-bold text-white text-xs mt-0.5">₹999</div>
+                      <div className="text-emerald-400 font-bold text-xs mt-0.5">
+                        ${convertInrToUsd(999, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier).toFixed(2)} USD
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
+                      <div className="text-[10px] text-slate-400">Growth Plan</div>
+                      <div className="font-bold text-white text-xs mt-0.5">₹1,999</div>
+                      <div className="text-emerald-400 font-bold text-xs mt-0.5">
+                        ${convertInrToUsd(1999, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier).toFixed(2)} USD
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
+                      <div className="text-[10px] text-slate-400">Pro Plan</div>
+                      <div className="font-bold text-white text-xs mt-0.5">₹3,999</div>
+                      <div className="text-emerald-400 font-bold text-xs mt-0.5">
+                        ${convertInrToUsd(3999, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier).toFixed(2)} USD
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive Test Calculator */}
+                  <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span className="text-slate-400 text-[11px]">Interactive Live Calculator:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-mono text-xs">₹</span>
+                      <input
+                        type="number"
+                        value={calcInrInput}
+                        onChange={(e) => setCalcInrInput(Number(e.target.value))}
+                        className="w-28 text-xs p-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
+                        placeholder="INR amount"
+                      />
+                      <span className="text-slate-400 text-xs">→</span>
+                      <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-bold font-mono">
+                        ${convertInrToUsd(calcInrInput, paymentConfig.inrPerUsd, paymentConfig.usdMultiplier).toFixed(2)} USD
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Dunning & Renewal Policy Rules */}
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <RotateCw className="w-4 h-4 text-emerald-400" />
-                  <span>3. Renewal Notification &amp; Suspension Rules</span>
+                  <span>4. Renewal Notification &amp; Suspension Rules</span>
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1947,7 +2098,7 @@ export default function MasterAdminPage() {
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Package className="w-4 h-4 text-purple-400" />
-                  <span>4. Direct UPI &amp; Offline Payment Fallback (Optional)</span>
+                  <span>5. Direct UPI &amp; Offline Payment Fallback (Optional)</span>
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
