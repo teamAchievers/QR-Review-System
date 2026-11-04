@@ -3615,7 +3615,8 @@ export default function MasterAdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveOffer} className="space-y-4">
+            <form onSubmit={handleSaveOffer} className="space-y-4 text-xs">
+              {/* 1. Headline */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Offer Headline <span className="text-rose-500">*</span>
@@ -3623,89 +3624,220 @@ export default function MasterAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Free Custom Standee with Annual Plan!"
+                  placeholder="e.g. Festive Sale: 50% Off Annual Plan + Free Custom Standee!"
                   value={offerForm.title}
                   onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
                   className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
+              {/* 2. Subtitle / Details */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Subtitle / Details</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Upgrade your subscription today and receive a handcrafted wooden QR standee shipped to your doorstep."
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Subtitle / Offer Details &amp; Perks
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Upgrade your subscription today to receive a handcrafted acrylic QR standee shipped to your doorstep, plus 50% off for the first year."
                   value={offerForm.subtitle}
                   onChange={(e) => setOfferForm({ ...offerForm, subtitle: e.target.value })}
-                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Badge Text</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. LIMITED OFFER"
-                    value={offerForm.badgeText}
-                    onChange={(e) => setOfferForm({ ...offerForm, badgeText: e.target.value })}
-                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              {/* 3. Badge Text & Quick Chips */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">Highlight Badge Text</label>
+                  <span className="text-[10px] text-slate-400">Click a preset below:</span>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Linked Coupon Code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. LIMITED TIME"
+                  value={offerForm.badgeText}
+                  onChange={(e) => setOfferForm({ ...offerForm, badgeText: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1.5"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {["LIMITED TIME", "FESTIVE SALE", "50% OFF", "FREE STANDEE", "EXCLUSIVE", "FLASH OFFER"].map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setOfferForm({ ...offerForm, badgeText: b })}
+                      className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors ${
+                        offerForm.badgeText === b
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-900 text-slate-400 hover:text-white border border-slate-700"
+                      }`}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Linked Coupon Code & Auto-Apply */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Linked Coupon Code (Optional Auto-Apply)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1">
+                  {coupons && coupons.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setOfferForm({ ...offerForm, couponCode: e.target.value });
+                        }
+                      }}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Choose Existing Coupon --</option>
+                      {coupons.filter(c => c.isActive).map((c) => (
+                        <option key={c.id} value={c.code}>
+                          {c.code} ({c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT`})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     type="text"
-                    placeholder="e.g. FREESTANDEE"
+                    placeholder="or type code e.g. FREESTANDEE"
                     value={offerForm.couponCode}
-                    onChange={(e) => setOfferForm({ ...offerForm, couponCode: e.target.value.toUpperCase() })}
+                    onChange={(e) => setOfferForm({ ...offerForm, couponCode: e.target.value.toUpperCase().trim() })}
                     className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400">
+                  When a client clicks &quot;Claim Offer&quot; on their dashboard, this coupon code is automatically copied and applied to their subscription checkout.
+                </p>
+              </div>
+
+              {/* 5. CTA Destination Link (The Missing Field!) & Button Text */}
+              <div className="p-3 bg-slate-900/90 border border-slate-700 rounded-xl space-y-2.5">
+                <div className="font-semibold text-blue-400 text-xs flex items-center gap-1.5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Call to Action (CTA) Action &amp; Destination</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">CTA Button Text</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Claim Offer, Upgrade Now, Save 50%"
+                      value={offerForm.ctaText}
+                      onChange={(e) => setOfferForm({ ...offerForm, ctaText: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">Destination Action Preset</label>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setOfferForm({ ...offerForm, ctaLink: e.target.value });
+                        }
+                      }}
+                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="/dashboard?tab=billing">Upgrade / Plans Tab (/dashboard?tab=billing)</option>
+                      <option value="/dashboard?action=order-standee">Order Physical Standee Modal</option>
+                      <option value="https://wa.me/?text=Hi%20Unbox%20Studio%2C%20I%20want%20to%20claim%20the%20promotional%20offer!">WhatsApp Concierge Support</option>
+                      <option value="/dashboard?tab=qr">QR Code Studio Tab</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Banner Color</label>
-                  <div className="flex items-center gap-2">
+                  <label className="block text-[10px] font-semibold text-slate-400 mb-1">Exact Target Link (URL)</label>
+                  <input
+                    type="text"
+                    value={offerForm.ctaLink}
+                    onChange={(e) => setOfferForm({ ...offerForm, ctaLink: e.target.value })}
+                    placeholder="/dashboard?tab=billing or https://..."
+                    className="w-full text-xs p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* 6. Banner Color Palette & Swatches */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Banner Background Color</label>
+                  <span className="text-[10px] text-slate-400">Quick Palette Swatches:</span>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  {[
+                    { color: "#2563eb", name: "Royal Blue" },
+                    { color: "#059669", name: "Emerald Green" },
+                    { color: "#4f46e5", name: "Vibrant Indigo" },
+                    { color: "#d97706", name: "Golden Amber" },
+                    { color: "#e11d48", name: "Crimson Rose" },
+                    { color: "#0f172a", name: "Dark Slate" },
+                  ].map((p) => (
+                    <button
+                      key={p.color}
+                      type="button"
+                      onClick={() => setOfferForm({ ...offerForm, bannerColor: p.color })}
+                      title={p.name}
+                      className={`w-6 h-6 rounded-lg transition-transform border ${
+                        offerForm.bannerColor === p.color
+                          ? "scale-110 ring-2 ring-white border-transparent"
+                          : "border-slate-600 hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: p.color }}
+                    />
+                  ))}
+                  <div className="flex items-center gap-1.5 ml-auto">
                     <input
                       type="color"
                       value={offerForm.bannerColor}
                       onChange={(e) => setOfferForm({ ...offerForm, bannerColor: e.target.value })}
-                      className="w-9 h-9 p-0.5 bg-slate-900 border border-slate-700 rounded-xl cursor-pointer"
+                      className="w-8 h-8 p-0.5 bg-slate-900 border border-slate-700 rounded-lg cursor-pointer"
                     />
                     <input
                       type="text"
                       value={offerForm.bannerColor}
                       onChange={(e) => setOfferForm({ ...offerForm, bannerColor: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-20 text-xs p-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 7. Target Audience & Expiry Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Target Audience</label>
                   <select
                     value={offerForm.targetAudience}
                     onChange={(e) => setOfferForm({ ...offerForm, targetAudience: e.target.value })}
-                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="ALL">All Clients</option>
-                    <option value="NEW">New Signups</option>
-                    <option value="RENEWAL">Renewal Due</option>
-                    <option value="STARTER">Starter Tier Only</option>
+                    <option value="ALL">All Clients (Platform Wide)</option>
+                    <option value="RENEWAL">Renewal Due / Expiring Soon (&lt; 7 Days)</option>
+                    <option value="NEW">New Signups (Joined in Last 14 Days)</option>
+                    <option value="STARTER">Starter Tier Only (Upsell)</option>
+                    <option value="GROWTH">Growth Tier Only</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">CTA Button Text</label>
-                  <input
-                    type="text"
-                    value={offerForm.ctaText}
-                    onChange={(e) => setOfferForm({ ...offerForm, ctaText: e.target.value })}
-                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Expiry Date</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-300">Expiry Date</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 14);
+                        setOfferForm({ ...offerForm, validUntil: d.toISOString().split("T")[0] });
+                      }}
+                      className="text-[10px] text-blue-400 hover:underline"
+                    >
+                      +14 Days
+                    </button>
+                  </div>
                   <input
                     type="date"
                     value={offerForm.validUntil}
@@ -3715,49 +3847,75 @@ export default function MasterAdminPage() {
                 </div>
               </div>
 
-              {/* Live Preview Inside Modal */}
+              {/* 8. High-Fidelity Live Dashboard Banner Preview */}
               <div className="pt-2">
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Preview in Client Dashboard:
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Live Preview in Client Dashboard:
+                  </label>
+                  <span className="text-[10px] text-slate-500">
+                    Target: {offerForm.targetAudience} • {offerForm.validUntil ? `Expires ${offerForm.validUntil}` : "No expiry"}
+                  </span>
+                </div>
+
                 <div
-                  className="p-4 rounded-2xl text-white shadow-md flex items-center justify-between gap-4"
+                  className="p-4 sm:p-5 rounded-2xl text-white shadow-lg relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border border-white/10"
                   style={{ backgroundColor: offerForm.bannerColor || "#2563eb" }}
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1.5 flex-1 pr-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {offerForm.badgeText && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/30 text-white border border-white/20">
+                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/30 text-white border border-white/20">
                           {offerForm.badgeText}
                         </span>
                       )}
                       {offerForm.couponCode && (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-400 text-slate-950">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-400 text-slate-950 shadow-xs">
+                          <Tag className="w-2.5 h-2.5" />
                           {offerForm.couponCode}
                         </span>
                       )}
+                      {offerForm.validUntil && (
+                        <span className="text-[10px] text-white/80 font-medium flex items-center gap-1">
+                          <Calendar className="w-2.5 h-2.5" />
+                          Ends {offerForm.validUntil}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-sm font-bold">{offerForm.title || "Offer Title"}</div>
-                    {offerForm.subtitle && <div className="text-xs text-white/90">{offerForm.subtitle}</div>}
+                    <div className="text-sm sm:text-base font-extrabold leading-tight">
+                      {offerForm.title || "Festive Offer: 50% Off Annual Plan + Free Standee!"}
+                    </div>
+                    <div className="text-xs text-white/90 leading-relaxed font-medium">
+                      {offerForm.subtitle || "Upgrade your subscription today to get our premium handcrafted QR table standee delivered free to your business."}
+                    </div>
                   </div>
-                  <div className="px-3 py-1.5 bg-white text-slate-900 rounded-xl text-xs font-bold shrink-0">
-                    {offerForm.ctaText || "Claim"}
+
+                  <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                    <div className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-950 rounded-xl text-xs font-bold shadow-md flex items-center gap-1 cursor-pointer">
+                      <span>{offerForm.ctaText || "Claim Offer"}</span>
+                      <ExternalLink className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="p-1 rounded-lg bg-black/20 text-white/70">
+                      <X className="w-3.5 h-3.5" />
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* 9. Active Toggle */}
               <div className="pt-2">
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
                   <input
                     type="checkbox"
                     checked={offerForm.isActive}
                     onChange={(e) => setOfferForm({ ...offerForm, isActive: e.target.checked })}
-                    className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
                   />
                   <span>Active &amp; Visible to Clients Immediately</span>
                 </label>
               </div>
 
+              {/* 10. Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
                 <button
                   type="button"
@@ -3768,9 +3926,10 @@ export default function MasterAdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5"
                 >
-                  {editingOffer ? "Update Offer" : "Publish Offer"}
+                  <Megaphone className="w-3.5 h-3.5" />
+                  <span>{editingOffer ? "Update Offer" : "Publish Offer"}</span>
                 </button>
               </div>
             </form>

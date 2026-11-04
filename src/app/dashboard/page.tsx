@@ -56,6 +56,7 @@ interface BusinessProfile {
   planPrice: number;
   currentPeriodEnd: string | null;
   lastPaymentDate: string | null;
+  createdAt?: string;
   poweredByText?: string | null;
   poweredByUrl?: string | null;
 }
@@ -104,6 +105,8 @@ export default function BusinessDashboardPage() {
   const [loadingTripadvisorQr, setLoadingTripadvisorQr] = useState(false);
   const [isTripadvisorAllowed, setIsTripadvisorAllowed] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [activeOffers, setActiveOffers] = useState<any[]>([]);
+  const [dismissedOffers, setDismissedOffers] = useState<string[]>([]);
 
   // Razorpay payment state
   const [payingRazorpay, setPayingRazorpay] = useState(false);
@@ -226,6 +229,17 @@ export default function BusinessDashboardPage() {
       }
       if (data.metrics) setMetrics(data.metrics);
       if (data.feedbacks) setFeedbacks(data.feedbacks);
+
+        // Fetch active promotional offers
+        try {
+          const offerRes = await fetch("/api/offers/active");
+          if (offerRes.ok) {
+            const offerData = await offerRes.json();
+            if (offerData.offers) setActiveOffers(offerData.offers);
+          }
+        } catch (e) {
+          console.warn("Could not fetch offers:", e);
+        }
     } catch (err) {
       console.error(err);
     } finally {
@@ -253,6 +267,60 @@ export default function BusinessDashboardPage() {
       }
     }
   };
+
+  // Handle Claiming a Promotional Offer
+  const handleClaimOffer = (offer: any) => {
+    if (offer.couponCode) {
+      navigator.clipboard.writeText(offer.couponCode);
+      alert(`Coupon code "${offer.couponCode}" copied to clipboard! Applied to your checkout.`);
+    }
+    const targetLink = offer.ctaLink || "/dashboard?tab=billing";
+    if (targetLink === "/dashboard?action=order-standee" || targetLink.includes("order-standee")) {
+      setOrderModalOpen(true);
+      return;
+    }
+    if (targetLink.startsWith("http") || targetLink.startsWith("https://wa.me")) {
+      window.open(targetLink, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (targetLink.includes("tab=billing")) {
+      setActiveTab("billing");
+      return;
+    }
+    if (targetLink.includes("tab=qr")) {
+      setActiveTab("qr");
+      return;
+    }
+    if (targetLink.includes("tab=settings")) {
+      setActiveTab("settings");
+      return;
+    }
+    setActiveTab("billing");
+  };
+
+  // Find the top applicable offer for this client
+  const currentOffer = activeOffers.find((o) => {
+    if (dismissedOffers.includes(o.id)) return false;
+    if (!o.isActive) return false;
+    if (o.validUntil && new Date(o.validUntil) < new Date()) return false;
+    if (o.targetAudience === "ALL") return true;
+    if (o.targetAudience === "RENEWAL") {
+      return Boolean(
+        subscriptionState &&
+          (subscriptionState.effectiveStatus === "DUE" ||
+            (subscriptionState.daysRemaining !== null && subscriptionState.daysRemaining <= 7))
+      );
+    }
+    if (o.targetAudience === "NEW") {
+      if (!business?.createdAt) return true;
+      const created = new Date(business.createdAt);
+      const ageInDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+      return ageInDays <= 14;
+    }
+    if (o.targetAudience === "STARTER") return business?.planTier === "STARTER";
+    if (o.targetAudience === "GROWTH") return business?.planTier === "GROWTH";
+    return true;
+  });
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -770,6 +838,64 @@ export default function BusinessDashboardPage() {
       <main className={`max-w-6xl mx-auto px-4 sm:px-6 py-8 transition-all ${
         isSuspended ? "filter grayscale opacity-35 pointer-events-none select-none blur-[0.5px]" : ""
       }`}>
+        {/* ================= ACTIVE PROMOTIONAL OFFER BANNER ================= */}
+        {currentOffer && !isSuspended && (
+          <div
+            className="mb-6 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all animate-in fade-in slide-in-from-top-3 duration-300 pointer-events-auto"
+            style={{ backgroundColor: currentOffer.bannerColor || "#2563eb" }}
+          >
+            <div className="space-y-1.5 flex-1 pr-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {currentOffer.badgeText && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-black/30 text-white border border-white/20">
+                    {currentOffer.badgeText}
+                  </span>
+                )}
+                {currentOffer.couponCode && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400 text-slate-950 shadow-xs">
+                    <Tag className="w-3 h-3" />
+                    {currentOffer.couponCode}
+                  </span>
+                )}
+                {currentOffer.validUntil && (
+                  <span className="text-[11px] text-white/80 font-medium flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Expires {new Date(currentOffer.validUntil).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-base sm:text-lg font-black tracking-tight leading-snug">
+                {currentOffer.title}
+              </h3>
+              {currentOffer.subtitle && (
+                <p className="text-xs text-white/90 leading-relaxed font-medium">
+                  {currentOffer.subtitle}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleClaimOffer(currentOffer)}
+                className="py-2.5 px-5 bg-white hover:bg-slate-50 text-slate-950 rounded-2xl font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>{currentOffer.ctaText || "Claim Offer"}</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDismissedOffers((prev) => [...prev, currentOffer.id])}
+                className="p-1.5 rounded-xl bg-black/20 hover:bg-black/35 text-white/80 hover:text-white transition-colors cursor-pointer"
+                title="Dismiss announcement"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
         {/* ================= PRE-7-DAYS PAYMENT PENDING BANNER ================= */}
         {isPaymentPending && !isSuspended && (
           <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-amber-950 shadow-sm animate-in fade-in">
