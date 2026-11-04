@@ -32,6 +32,7 @@ model Business {
   googleReviewUrl String      @default("")
   tripadvisorReviewUrl String? @default("")
   reviewPlatform  String      @default("GOOGLE") // "GOOGLE", "TRIPADVISOR", "BOTH"
+  tripadvisorEnabled Boolean  @default(true)
   phone           String?
   email           String?
   address         String?

@@ -53,6 +53,7 @@ interface BusinessWithUser {
   googlePlaceId: string | null;
   tripadvisorReviewUrl?: string | null;
   reviewPlatform?: string | null;
+  tripadvisorEnabled?: boolean;
   keywords: string;
   targetTone: string;
   minGoogleStar: number;
@@ -589,6 +590,7 @@ export default function MasterAdminPage() {
   const [globalBranding, setGlobalBranding] = useState({
     poweredByText: "Unbox Studio",
     poweredByUrl: "https://unboxstudio.com",
+    enableTripadvisor: true,
     applyToAllBusinesses: false,
   });
 
@@ -602,6 +604,7 @@ export default function MasterAdminPage() {
             ...prev,
             poweredByText: data.settings.poweredByText || "Unbox Studio",
             poweredByUrl: data.settings.poweredByUrl || "https://unboxstudio.com",
+            enableTripadvisor: data.settings.enableTripadvisor !== false,
           }));
         }
       }

@@ -102,6 +102,7 @@ export default function BusinessDashboardPage() {
   const [selectedQrPlatform, setSelectedQrPlatform] = useState<"google" | "tripadvisor">("google");
   const [tripadvisorQrDataUrl, setTripadvisorQrDataUrl] = useState<string>("");
   const [loadingTripadvisorQr, setLoadingTripadvisorQr] = useState(false);
+  const [isTripadvisorAllowed, setIsTripadvisorAllowed] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Razorpay payment state
@@ -193,6 +194,7 @@ export default function BusinessDashboardPage() {
         return;
       }
       const data = await res.json();
+      if (data.isTripadvisorAllowed !== undefined) setIsTripadvisorAllowed(data.isTripadvisorAllowed);
       if (data.business) {
         setBusiness(data.business);
         setFormData({
@@ -363,7 +365,7 @@ export default function BusinessDashboardPage() {
   };
 
   const handleDownloadBrandedPng = () => {
-    const activeQrUrl = selectedQrPlatform === "tripadvisor" ? tripadvisorQrDataUrl : qrDataUrl;
+    const activeQrUrl = (isTripadvisorAllowed && (isTripadvisorAllowed && selectedQrPlatform === "tripadvisor")) ? tripadvisorQrDataUrl : qrDataUrl;
     if (!activeQrUrl || !business) return;
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -902,41 +904,43 @@ export default function BusinessDashboardPage() {
             <div className="lg:col-span-5 space-y-5">
               <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
                 {/* Platform Selector Switcher */}
-                <div className="flex items-center gap-2 mb-4 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => handleSwitchQrPlatform("google")}
-                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                      selectedQrPlatform === "google"
-                        ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>Google Review QR</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSwitchQrPlatform("tripadvisor")}
-                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                      selectedQrPlatform === "tripadvisor"
-                        ? "bg-[#00aa6c] text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>TripAdvisor QR</span>
-                  </button>
-                </div>
+                {isTripadvisorAllowed && (
+                  <div className="flex items-center gap-2 mb-4 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchQrPlatform("google")}
+                      className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                        selectedQrPlatform === "google"
+                          ? "bg-white text-blue-700 shadow-sm border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>Google Review QR</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchQrPlatform("tripadvisor")}
+                      className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                        selectedQrPlatform === "tripadvisor"
+                          ? "bg-[#00aa6c] text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <span>TripAdvisor QR</span>
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-base text-slate-900">
-                    {selectedQrPlatform === "tripadvisor" ? "TripAdvisor Review QR" : "Google Review QR"}
+                    {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "TripAdvisor Review QR" : "Google Review QR"}
                   </h3>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                    selectedQrPlatform === "tripadvisor"
+                    (isTripadvisorAllowed && selectedQrPlatform === "tripadvisor")
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : "bg-blue-50 text-blue-700 border-blue-200"
                   }`}>
-                    {selectedQrPlatform === "tripadvisor" ? "TripAdvisor Optimized" : "Logo In Center"}
+                    {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "TripAdvisor Optimized" : "Logo In Center"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mb-5">
@@ -944,9 +948,9 @@ export default function BusinessDashboardPage() {
                 </p>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col items-center justify-center mb-5">
-                  {(selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) ? (
+                  {((isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) ? (
                     <img
-                      src={selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
+                      src={(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
                       alt="Review QR Code"
                       className="w-56 h-auto rounded-xl shadow-xs"
                     />
@@ -954,7 +958,7 @@ export default function BusinessDashboardPage() {
                     <div className="w-56 h-56 bg-slate-200 animate-pulse rounded-xl" />
                   )}
                   <span className="mt-3 text-[11px] font-mono text-slate-500 break-all text-center">
-                    {publicReviewUrl}{selectedQrPlatform === "tripadvisor" ? "?platform=tripadvisor" : ""}
+                    {publicReviewUrl}{(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "?platform=tripadvisor" : ""}
                   </span>
                 </div>
 
@@ -1028,7 +1032,7 @@ export default function BusinessDashboardPage() {
                 >
                   <div
                     className={`absolute top-0 left-0 right-0 h-3 ${
-                      selectedQrPlatform === "tripadvisor"
+                      (isTripadvisorAllowed && selectedQrPlatform === "tripadvisor")
                         ? "bg-gradient-to-r from-[#00aa6c] to-emerald-700"
                         : "bg-gradient-to-r from-blue-600 to-indigo-600"
                     }`}
@@ -1036,7 +1040,7 @@ export default function BusinessDashboardPage() {
 
                   <div
                     className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center text-white font-bold text-xl mb-3 shadow-md"
-                    style={{ backgroundColor: selectedQrPlatform === "tripadvisor" ? "#00aa6c" : (business.primaryColor || "#2563eb") }}
+                    style={{ backgroundColor: (isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "#00aa6c" : (business.primaryColor || "#2563eb") }}
                   >
                     {business.name.charAt(0)}
                   </div>
@@ -1044,7 +1048,7 @@ export default function BusinessDashboardPage() {
                   <h4 className="font-extrabold text-xl text-slate-900 leading-tight">{business.name}</h4>
                   {business.city && <p className="text-xs text-slate-400 mt-0.5">{business.city}</p>}
 
-                  {selectedQrPlatform === "tripadvisor" ? (
+                  {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? (
                     <div className="flex justify-center items-center gap-1.5 my-3">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <span key={s} className="w-4 h-4 rounded-full bg-[#00aa6c] inline-block shadow-xs border border-emerald-600" />
@@ -1059,18 +1063,18 @@ export default function BusinessDashboardPage() {
                   )}
 
                   <h5 className="text-base font-bold text-slate-800 mt-2">
-                    {selectedQrPlatform === "tripadvisor" ? "Review Us on TripAdvisor" : "How Was Your Visit?"}
+                    {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "Review Us on TripAdvisor" : "How Was Your Visit?"}
                   </h5>
                   <p className="text-xs text-slate-500 mt-1 mb-4">
-                    {selectedQrPlatform === "tripadvisor"
+                    {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor")
                       ? "Scan with your phone camera to share your review on TripAdvisor"
                       : "Scan with your phone camera to share your honest thoughts with us"}
                   </p>
 
                   <div className="p-2 bg-slate-50 border-2 border-slate-200 rounded-2xl inline-block mb-3">
-                    {(selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) && (
+                    {((isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) && (
                       <img
-                        src={selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
+                        src={(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
                         alt="Printable QR"
                         className="w-48 h-auto rounded-lg"
                       />
@@ -1079,11 +1083,11 @@ export default function BusinessDashboardPage() {
 
                   <div>
                     <div className={`text-[11px] font-semibold py-1.5 px-3 rounded-full inline-block ${
-                      selectedQrPlatform === "tripadvisor"
+                      (isTripadvisorAllowed && selectedQrPlatform === "tripadvisor")
                         ? "text-emerald-800 bg-emerald-50 border border-emerald-200"
                         : "text-slate-600 bg-slate-100"
                     }`}>
-                      {selectedQrPlatform === "tripadvisor" ? "🟢 Official TripAdvisor Review" : "⚡ Quick 15-second feedback"}
+                      {(isTripadvisorAllowed && selectedQrPlatform === "tripadvisor") ? "🟢 Official TripAdvisor Review" : "⚡ Quick 15-second feedback"}
                     </div>
                   </div>
 

@@ -17,6 +17,8 @@ interface BusinessData {
   googlePlaceId: string | null;
   tripadvisorReviewUrl?: string | null;
   reviewPlatform?: string | null;
+  isTripadvisorAllowed?: boolean;
+  tripadvisorEnabled?: boolean;
   keywords: string;
   subscriptionStatus?: string;
   isSuspended?: boolean;

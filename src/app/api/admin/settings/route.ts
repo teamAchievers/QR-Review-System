@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-// GET: Fetch system settings (e.g., global default Powered by branding)
+// GET: Fetch system settings (global default Powered by, TripAdvisor switch, etc.)
 export async function GET() {
   try {
     const session = await getSession();
@@ -20,6 +20,7 @@ export async function GET() {
       settings: {
         poweredByText: settingsMap["defaultPoweredByText"] || "Unbox Studio",
         poweredByUrl: settingsMap["defaultPoweredByUrl"] || "https://unboxstudio.com",
+        enableTripadvisor: settingsMap["enableTripadvisor"] !== "false", // Default true
       },
     });
   } catch (err: any) {
@@ -28,7 +29,7 @@ export async function GET() {
   }
 }
 
-// POST: Update system settings (e.g. global default Powered by)
+// POST: Update system settings (global default Powered by, TripAdvisor switch)
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { poweredByText, poweredByUrl, applyToAllBusinesses } = await req.json();
+    const { poweredByText, poweredByUrl, enableTripadvisor, applyToAllBusinesses } = await req.json();
 
     if (poweredByText !== undefined) {
       await db.systemSetting.upsert({
@@ -54,7 +55,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Optionally propagate to all existing businesses
+    if (enableTripadvisor !== undefined) {
+      await db.systemSetting.upsert({
+        where: { key: "enableTripadvisor" },
+        update: { value: enableTripadvisor ? "true" : "false" },
+        create: { key: "enableTripadvisor", value: enableTripadvisor ? "true" : "false" },
+      });
+    }
+
+    // Optionally propagate branding to all existing businesses
     if (applyToAllBusinesses) {
       await db.business.updateMany({
         data: {
@@ -66,10 +75,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Platform branding settings updated successfully",
+      message: "System settings updated successfully",
       settings: {
         poweredByText: poweredByText || "Unbox Studio",
         poweredByUrl: poweredByUrl || "https://unboxstudio.com",
+        enableTripadvisor: enableTripadvisor !== undefined ? Boolean(enableTripadvisor) : true,
       },
     });
   } catch (err: any) {

@@ -17,16 +17,25 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch business details for branding
-    const business = await db.business.findUnique({
-      where: { slug },
-      select: {
-        name: true,
-        logoUrl: true,
-        primaryColor: true,
-        poweredByText: true,
-        reviewPlatform: true,
-      },
-    });
+    const [business, globalTripadvisor] = await Promise.all([
+      db.business.findUnique({
+        where: { slug },
+        select: {
+          name: true,
+          logoUrl: true,
+          primaryColor: true,
+          poweredByText: true,
+          reviewPlatform: true,
+          tripadvisorEnabled: true,
+        },
+      }),
+      db.systemSetting.findUnique({
+        where: { key: "enableTripadvisor" },
+      }),
+    ]);
+
+    const isTripadvisorAllowed = (globalTripadvisor?.value !== "false") && (business?.tripadvisorEnabled ?? true);
+    const effectivePlatform = (platform === "tripadvisor" && isTripadvisorAllowed) ? "tripadvisor" : "google";
 
     const businessName = business?.name || "Business";
     const initial = businessName.charAt(0).toUpperCase() || "B";
@@ -37,7 +46,7 @@ export async function GET(req: NextRequest) {
     // Determine the base URL & target URL
     const host = req.headers.get("host") || "localhost:3000";
     const protocol = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    const targetUrl = platform === "tripadvisor"
+    const targetUrl = effectivePlatform === "tripadvisor"
       ? `${protocol}://${host}/r/${slug}?platform=tripadvisor`
       : `${protocol}://${host}/r/${slug}`;
 
@@ -73,7 +82,7 @@ export async function GET(req: NextRequest) {
     // Build center logo SVG elements
     let centerLogoElement: string;
     if (logoUrl) {
-      const strokeColor = platform === "tripadvisor" ? "#00aa6c" : "#e2e8f0";
+      const strokeColor = effectivePlatform === "tripadvisor" ? "#00aa6c" : "#e2e8f0";
       centerLogoElement = `
         <clipPath id="logo-circle-clip">
           <circle cx="0" cy="0" r="${innerR}" />
@@ -83,7 +92,7 @@ export async function GET(req: NextRequest) {
         <!-- High-Resolution Center Logo Image -->
         <image href="${logoUrl}" x="-${innerR}" y="-${innerR}" width="${imgSize}" height="${imgSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#logo-circle-clip)"/>
       `;
-    } else if (platform === "tripadvisor") {
+    } else if (effectivePlatform === "tripadvisor") {
       // Official TripAdvisor Owl Emblem (Large, bold & crisp)
       centerLogoElement = `
         <circle cx="0" cy="0" r="${outerR}" fill="#ffffff" stroke="#00aa6c" stroke-width="4.5" filter="url(#center-shadow)"/>
@@ -109,7 +118,7 @@ export async function GET(req: NextRequest) {
       `;
     }
 
-    const footerText = platform === "tripadvisor"
+    const footerText = effectivePlatform === "tripadvisor"
       ? `<text x="0" y="2" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#475569">
           Review us on <tspan font-weight="800" fill="#00aa6c">TripAdvisor</tspan> • <tspan font-weight="700" fill="#0f172a">${poweredBy}</tspan>
         </text>`
@@ -117,7 +126,7 @@ export async function GET(req: NextRequest) {
           Powered by <tspan font-weight="800" fill="#0f172a">${poweredBy}</tspan>
         </text>`;
 
-    const footerWidth = platform === "tripadvisor" ? 280 : 230;
+    const footerWidth = effectivePlatform === "tripadvisor" ? 280 : 230;
 
     // Compose full SVG with QR + Center Logo + Footer badge
     const compositeSvg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -152,7 +161,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse(compositeSvg, {
         headers: {
           "Content-Type": "image/svg+xml",
-          "Content-Disposition": `attachment; filename="qr-${slug}-${platform}.svg"`,
+          "Content-Disposition": `attachment; filename="qr-${slug}-${effectivePlatform}.svg"`,
         },
       });
     }
@@ -170,7 +179,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "image/png",
-          "Content-Disposition": `attachment; filename="qr-${slug}-${platform}.png"`,
+          "Content-Disposition": `attachment; filename="qr-${slug}-${effectivePlatform}.png"`,
         },
       });
     }
@@ -183,7 +192,7 @@ export async function GET(req: NextRequest) {
       targetUrl,
       dataUrl,
       svg: compositeSvg,
-      platform,
+      platform: effectivePlatform,
     });
   } catch (err: any) {
     console.error("QR Code generation error:", err);
