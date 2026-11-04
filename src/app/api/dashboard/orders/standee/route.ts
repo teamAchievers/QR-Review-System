@@ -30,11 +30,45 @@ export async function POST(req: NextRequest) {
       quantity = 1,
       totalPrice = 499,
       courierNotes,
+      couponCode,
     } = await req.json();
 
     if (!contactName || !contactPhone || !shippingAddress) {
       return NextResponse.json({ error: "Missing required shipping information" }, { status: 400 });
     }
+
+    let finalPrice = Number(totalPrice) || 499;
+    let appliedDiscount = 0;
+    let validCode: string | null = null;
+
+    if (couponCode && typeof couponCode === "string") {
+      const clean = couponCode.toUpperCase().trim();
+      const c = await db.coupon.findUnique({ where: { code: clean } });
+      if (c && c.isActive) {
+        const expired = c.validUntil && new Date(c.validUntil) < new Date();
+        const maxed = c.maxUses && c.usedCount >= c.maxUses;
+        if (!expired && !maxed) {
+          validCode = c.code;
+          if (c.discountType === "PERCENTAGE") {
+            appliedDiscount = (finalPrice * c.discountValue) / 100;
+          } else {
+            appliedDiscount = c.discountValue;
+          }
+          appliedDiscount = Math.min(finalPrice, appliedDiscount);
+          finalPrice = Math.max(0, finalPrice - appliedDiscount);
+
+          await db.coupon.update({
+            where: { code: c.code },
+            data: { usedCount: { increment: 1 } },
+          }).catch(() => {});
+        }
+      }
+    }
+
+    const orderNotes = [
+      courierNotes,
+      validCode ? `[Coupon: ${validCode}, Saved ₹${appliedDiscount}]` : null,
+    ].filter(Boolean).join(" ");
 
     const order = await db.standeeOrder.create({
       data: {
@@ -46,13 +80,13 @@ export async function POST(req: NextRequest) {
         postalCode: postalCode || "",
         standeeType,
         quantity: Number(quantity) || 1,
-        totalPrice: Number(totalPrice) || 499,
+        totalPrice: finalPrice,
         status: "PENDING",
-        courierNotes: courierNotes || "",
+        courierNotes: orderNotes,
       },
     });
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order, discountAmount: appliedDiscount, finalPrice });
   } catch (err: any) {
     console.error("Standee order error:", err);
     return NextResponse.json({ error: "Failed to place standee order" }, { status: 500 });

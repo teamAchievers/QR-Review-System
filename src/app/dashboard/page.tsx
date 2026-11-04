@@ -108,6 +108,30 @@ export default function BusinessDashboardPage() {
   const [activeOffers, setActiveOffers] = useState<any[]>([]);
   const [dismissedOffers, setDismissedOffers] = useState<string[]>([]);
 
+  // Checkout Coupon State (Subscription Renewal)
+  const [checkoutCouponInput, setCheckoutCouponInput] = useState("");
+  const [appliedCheckoutCoupon, setAppliedCheckoutCoupon] = useState<{
+    code: string;
+    description?: string | null;
+    discountType: "PERCENTAGE" | "FLAT";
+    discountValue: number;
+    discountAmount: number;
+  } | null>(null);
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Standee Order Coupon State
+  const [standeeCouponInput, setStandeeCouponInput] = useState("");
+  const [appliedStandeeCoupon, setAppliedStandeeCoupon] = useState<{
+    code: string;
+    description?: string | null;
+    discountType: "PERCENTAGE" | "FLAT";
+    discountValue: number;
+    discountAmount: number;
+  } | null>(null);
+  const [standeeCouponValidating, setStandeeCouponValidating] = useState(false);
+  const [standeeCouponError, setStandeeCouponError] = useState<string | null>(null);
+
   // Razorpay payment state
   const [payingRazorpay, setPayingRazorpay] = useState(false);
   const [paymentSuccessToast, setPaymentSuccessToast] = useState<string | null>(null);
@@ -268,11 +292,104 @@ export default function BusinessDashboardPage() {
     }
   };
 
-  // Handle Claiming a Promotional Offer
+  // Apply coupon to Subscription renewal checkout
+  const handleApplySubscriptionCoupon = async (codeToTry?: string) => {
+    const code = (codeToTry || checkoutCouponInput).trim().toUpperCase();
+    if (!code) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+    setCouponValidating(true);
+    setCouponError(null);
+    try {
+      const baseInr = subscriptionState?.planPrice || 1999;
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, amount: baseInr }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setAppliedCheckoutCoupon({
+          code: data.coupon.code,
+          description: data.coupon.description,
+          discountType: data.coupon.discountType,
+          discountValue: data.coupon.discountValue,
+          discountAmount: data.discountAmount,
+        });
+        setCheckoutCouponInput(data.coupon.code);
+        setCouponError(null);
+      } else {
+        setCouponError(data.error || "Invalid or expired coupon code");
+        setAppliedCheckoutCoupon(null);
+      }
+    } catch {
+      setCouponError("Failed to validate coupon");
+      setAppliedCheckoutCoupon(null);
+    } finally {
+      setCouponValidating(false);
+    }
+  };
+
+  const handleRemoveSubscriptionCoupon = () => {
+    setAppliedCheckoutCoupon(null);
+    setCheckoutCouponInput("");
+    setCouponError(null);
+  };
+
+  // Apply coupon to Standee order checkout
+  const handleApplyStandeeCoupon = async (codeToTry?: string) => {
+    const code = (codeToTry || standeeCouponInput).trim().toUpperCase();
+    if (!code) {
+      setStandeeCouponError("Please enter a coupon code");
+      return;
+    }
+    setStandeeCouponValidating(true);
+    setStandeeCouponError(null);
+    try {
+      const standeeBasePrice = calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity);
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, amount: standeeBasePrice }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setAppliedStandeeCoupon({
+          code: data.coupon.code,
+          description: data.coupon.description,
+          discountType: data.coupon.discountType,
+          discountValue: data.coupon.discountValue,
+          discountAmount: data.discountAmount,
+        });
+        setStandeeCouponInput(data.coupon.code);
+        setStandeeCouponError(null);
+      } else {
+        setStandeeCouponError(data.error || "Invalid or expired coupon code");
+        setAppliedStandeeCoupon(null);
+      }
+    } catch {
+      setStandeeCouponError("Failed to validate coupon");
+      setAppliedStandeeCoupon(null);
+    } finally {
+      setStandeeCouponValidating(false);
+    }
+  };
+
+  const handleRemoveStandeeCoupon = () => {
+    setAppliedStandeeCoupon(null);
+    setStandeeCouponInput("");
+    setStandeeCouponError(null);
+  };
+
+  // Handle Claiming a Promotional Offer (Auto-applies linked coupon directly at checkout)
   const handleClaimOffer = (offer: any) => {
     if (offer.couponCode) {
       navigator.clipboard.writeText(offer.couponCode);
-      alert(`Coupon code "${offer.couponCode}" copied to clipboard! Applied to your checkout.`);
+      setCheckoutCouponInput(offer.couponCode);
+      setStandeeCouponInput(offer.couponCode);
+      handleApplySubscriptionCoupon(offer.couponCode);
+      handleApplyStandeeCoupon(offer.couponCode);
     }
     const targetLink = offer.ctaLink || "/dashboard?tab=billing";
     if (targetLink === "/dashboard?action=order-standee" || targetLink.includes("order-standee")) {
@@ -327,19 +444,33 @@ export default function BusinessDashboardPage() {
     router.push("/login");
   };
 
-  // Launch Razorpay Payment Flow
+  // Launch Razorpay Payment Flow (Supports Coupon Code and 100% Free Activation)
   const handlePayWithRazorpay = async () => {
     setPayingRazorpay(true);
     try {
       const orderRes = await fetch("/api/payment/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetCurrency: selectedCurrency }),
+        body: JSON.stringify({
+          targetCurrency: selectedCurrency,
+          couponCode: appliedCheckoutCoupon?.code || undefined,
+        }),
       });
 
       const orderData = await orderRes.json();
       if (!orderRes.ok) {
         alert(orderData.error || "Failed to create payment order");
+        setPayingRazorpay(false);
+        return;
+      }
+
+      // If it is a 100% free coupon order
+      if (orderData.isFreeOrder) {
+        setPaymentSuccessToast(orderData.message || "Subscription activated successfully with 100% discount!");
+        setAppliedCheckoutCoupon(null);
+        setCheckoutCouponInput("");
+        setTimeout(() => setPaymentSuccessToast(null), 4000);
+        fetchData();
         setPayingRazorpay(false);
         return;
       }
@@ -351,17 +482,24 @@ export default function BusinessDashboardPage() {
           amount: orderData.amount,
           currency: orderData.currency || "INR",
           name: "Unbox Studio",
-          description: `${orderData.businessName} - ${orderData.planTier} Plan Renewal`,
+          description: `${orderData.businessName} - ${orderData.planTier} Plan Renewal${
+            orderData.couponCode ? ` (Coupon: ${orderData.couponCode})` : ""
+          }`,
           order_id: orderData.orderId,
           handler: async function (response: any) {
             const verifyRes = await fetch("/api/payment/razorpay/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(response),
+              body: JSON.stringify({
+                ...response,
+                couponCode: orderData.couponCode,
+              }),
             });
             const verifyData = await verifyRes.json();
             if (verifyRes.ok) {
               setPaymentSuccessToast("Payment verified via Razorpay! Your subscription is active.");
+              setAppliedCheckoutCoupon(null);
+              setCheckoutCouponInput("");
               setTimeout(() => setPaymentSuccessToast(null), 4000);
               fetchData();
             } else {
@@ -405,12 +543,15 @@ export default function BusinessDashboardPage() {
           razorpay_payment_id: `pay_${Date.now()}_simulated`,
           razorpay_signature: "mock_signature_approved",
           isMock: true,
+          couponCode: pendingOrderDetails?.couponCode || appliedCheckoutCoupon?.code || undefined,
         }),
       });
 
       const verifyData = await verifyRes.json();
       if (verifyRes.ok) {
         setMockPaymentModalOpen(false);
+        setAppliedCheckoutCoupon(null);
+        setCheckoutCouponInput("");
         setPaymentSuccessToast("Razorpay payment approved! Subscription renewed & features reactivated.");
         setTimeout(() => setPaymentSuccessToast(null), 4000);
         fetchData();
@@ -516,6 +657,7 @@ export default function BusinessDashboardPage() {
         body: JSON.stringify({
           ...standeeForm,
           totalPrice: price,
+          couponCode: appliedStandeeCoupon?.code || undefined,
         }),
       });
 
@@ -1604,91 +1746,325 @@ export default function BusinessDashboardPage() {
           </div>
         )}
 
-        {/* ================= TAB 4: SUBSCRIPTION & PLAN ================= */}
+        {/* ================= TAB 4: SUBSCRIPTION & PLAN CHECKOUT ================= */}
         {activeTab === "billing" && (
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-3xl">
-            <div className="pb-4 border-b border-slate-200 mb-6 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base text-slate-900">Subscription &amp; Razorpay Billing</h3>
-                <p className="text-xs text-slate-500">
-                  Manage plan tier, renewal cycles, and online payment methods.
-                </p>
-              </div>
-
-              <button
-                onClick={handlePayWithRazorpay}
-                disabled={payingRazorpay}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Pay ₹{subscriptionState.planPrice} via Razorpay</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block mb-1">
-                  Current Plan
-                </span>
-                <div className="text-2xl font-extrabold text-slate-900">
-                  {subscriptionState.planTier} Plan
+          <div className="space-y-6 max-w-4xl">
+            {/* Header & Plan Overview Cards */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs">
+              <div className="pb-4 border-b border-slate-100 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-lg text-slate-900 tracking-tight">Subscription &amp; Checkout</h3>
+                  <p className="text-xs text-slate-500">
+                    Apply promo coupons, select local currency, and renew your plan securely via Razorpay.
+                  </p>
                 </div>
-                <div className="text-sm font-semibold text-blue-600 mt-1">
-                  ₹{subscriptionState.planPrice} / month
-                </div>
-              </div>
 
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block mb-1">
-                  Subscription Status
-                </span>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`px-3 py-1 rounded-xl text-xs font-bold border ${
-                      isSuspended
-                        ? "bg-rose-50 text-rose-700 border-rose-300"
-                        : isPaymentPending
-                        ? "bg-amber-50 text-amber-700 border-amber-300"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-300"
-                    }`}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="text-[11px] font-semibold text-slate-400">Currency:</span>
+                  <select
+                    value={selectedCurrency}
+                    onChange={(e) => setSelectedCurrency(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
-                    {isSuspended
-                      ? "SUSPENDED / LOCKED"
-                      : isPaymentPending
-                      ? "RENEWAL DUE"
-                      : "ACTIVE & PAID"}
-                  </span>
+                    <option value="INR">₹ INR (India)</option>
+                    <option value="USD">$ USD (US / Global)</option>
+                    <option value="EUR">€ EUR (Europe)</option>
+                    <option value="GBP">£ GBP (UK)</option>
+                    <option value="AED">AED (UAE / Gulf)</option>
+                    <option value="CAD">$ CAD (Canada)</option>
+                    <option value="AUD">$ AUD (Australia)</option>
+                    <option value="SGD">$ SGD (Singapore)</option>
+                  </select>
                 </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  {subscriptionState.dueDate ? (
-                    <>Next Renewal: <strong>{new Date(subscriptionState.dueDate).toLocaleDateString()}</strong></>
-                  ) : (
-                    "Active account"
-                  )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">
+                    Current Plan Tier
+                  </span>
+                  <div className="text-2xl font-black text-slate-900">
+                    {subscriptionState.planTier} Plan
+                  </div>
+                  <div className="text-sm font-bold text-blue-600 mt-1 flex items-center gap-1.5">
+                    <span>{formatCurrency(getDisplayPrice(subscriptionState.planPrice), selectedCurrency)}</span>
+                    <span className="text-xs text-slate-400 font-normal">/ billing cycle</span>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">
+                    Subscription Status
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span
+                      className={`px-3 py-1 rounded-xl text-xs font-bold border ${
+                        isSuspended
+                          ? "bg-rose-50 text-rose-700 border-rose-300"
+                          : isPaymentPending
+                          ? "bg-amber-50 text-amber-700 border-amber-300"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                      }`}
+                    >
+                      {isSuspended
+                        ? "SUSPENDED / OVERDUE"
+                        : isPaymentPending
+                        ? "RENEWAL DUE"
+                        : "ACTIVE & PAID"}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-2">
+                    {subscriptionState.dueDate ? (
+                      <>Renewal Date: <strong>{new Date(subscriptionState.dueDate).toLocaleDateString()}</strong></>
+                    ) : (
+                      "Active subscription"
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CHECKOUT & COUPON APPLICATION BOX */}
+              <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-400/20">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-extrabold tracking-tight">Express Plan Checkout</h4>
+                    <p className="text-[11px] text-slate-400">Apply a coupon code below to reduce your renewal fee</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  {/* Left Column: Coupon Input & Active Coupon */}
+                  <div className="space-y-3 bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <label className="block text-xs font-semibold text-slate-200">
+                      Have a Coupon or Promo Code?
+                    </label>
+
+                    {appliedCheckoutCoupon ? (
+                      <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                            <Tag className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-black text-xs text-emerald-300">
+                                {appliedCheckoutCoupon.code}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/30 text-emerald-200">
+                                APPLIED
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-emerald-200/90 mt-0.5">
+                              {appliedCheckoutCoupon.discountType === "PERCENTAGE"
+                                ? `${appliedCheckoutCoupon.discountValue}% OFF discount applied!`
+                                : `₹${appliedCheckoutCoupon.discountValue} FLAT discount applied!`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleRemoveSubscriptionCoupon}
+                          className="p-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-200 hover:text-white transition-colors cursor-pointer"
+                          title="Remove coupon"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Tag className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              placeholder="e.g. UNBOX50, FESTIVE30"
+                              value={checkoutCouponInput}
+                              onChange={(e) => {
+                                setCheckoutCouponInput(e.target.value.toUpperCase());
+                                setCouponError(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleApplySubscriptionCoupon();
+                                }
+                              }}
+                              className="w-full text-xs font-mono pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white uppercase placeholder:font-sans placeholder:normal-case placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApplySubscriptionCoupon()}
+                            disabled={couponValidating || !checkoutCouponInput.trim()}
+                            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5"
+                          >
+                            {couponValidating ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <span>Apply</span>
+                            )}
+                          </button>
+                        </div>
+
+                        {couponError && (
+                          <div className="flex items-center gap-1.5 text-rose-400 text-[11px] mt-2 font-medium">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            <span>{couponError}</span>
+                          </div>
+                        )}
+
+                        {/* Quick Suggestion from Current Active Offer if available */}
+                        {currentOffer?.couponCode && (
+                          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <span>Available Offer:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCheckoutCouponInput(currentOffer.couponCode);
+                                handleApplySubscriptionCoupon(currentOffer.couponCode);
+                              }}
+                              className="text-amber-400 hover:text-amber-300 font-mono font-bold underline decoration-amber-400/50 cursor-pointer"
+                            >
+                              {currentOffer.couponCode}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1 pt-1">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span>Valid for renewal &amp; upgrades. Instant checkout activation.</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Order Summary & Pay Button */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-slate-200 pb-2 mb-3 border-b border-white/10 flex items-center justify-between">
+                        <span>Checkout Summary</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          {selectedCurrency !== "INR" ? `Converted to ${selectedCurrency}` : "Direct INR"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between text-slate-300">
+                          <span>{subscriptionState.planTier} Plan (Base):</span>
+                          <span className="font-semibold">
+                            {formatCurrency(getDisplayPrice(subscriptionState.planPrice), selectedCurrency)}
+                          </span>
+                        </div>
+
+                        {appliedCheckoutCoupon && (
+                          <div className="flex justify-between text-emerald-400 font-semibold">
+                            <span className="flex items-center gap-1">
+                              <Tag className="w-3 h-3" />
+                              <span>Coupon ({appliedCheckoutCoupon.code}):</span>
+                            </span>
+                            <span>
+                              - {formatCurrency(getDisplayPrice(appliedCheckoutCoupon.discountAmount), selectedCurrency)}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="border-t border-white/10 pt-2.5 mt-2 flex items-baseline justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-white block">Total Amount Payable</span>
+                            {selectedCurrency !== "INR" && (
+                              <span className="text-[10px] text-slate-400">
+                                ≈ ₹{Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0))} INR
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xl sm:text-2xl font-black text-white">
+                              {formatCurrency(
+                                Math.max(
+                                  0,
+                                  getDisplayPrice(
+                                    Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0))
+                                  )
+                                ),
+                                selectedCurrency
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 mt-3 border-t border-white/10 space-y-2">
+                      <button
+                        type="button"
+                        onClick={handlePayWithRazorpay}
+                        disabled={payingRazorpay}
+                        className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+                      >
+                        {payingRazorpay ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Connecting to Gateway...</span>
+                          </>
+                        ) : Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0)) === 0 ? (
+                          <>
+                            <Sparkles className="w-4 h-4 text-amber-300" />
+                            <span>Activate 100% Free Subscription</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            <span>
+                              Pay {formatCurrency(
+                                Math.max(
+                                  0,
+                                  getDisplayPrice(
+                                    Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0))
+                                  )
+                                ),
+                                selectedCurrency
+                              )} via Razorpay
+                            </span>
+                          </>
+                        )}
+                      </button>
+
+                      <div className="flex items-center justify-center gap-3 text-[10px] text-slate-400">
+                        <span>UPI • Cards • NetBanking</span>
+                        <span>•</span>
+                        <span>256-Bit SSL Encrypted</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 text-xs space-y-3">
-              <h4 className="font-bold text-slate-800 text-sm">Included in your {subscriptionState.planTier} Plan:</h4>
-              <ul className="space-y-2 text-slate-600">
-                <li className="flex items-center gap-2">
+            {/* Plan Inclusions Checklist */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 text-xs shadow-xs">
+              <h4 className="font-bold text-slate-900 text-sm mb-3">Included with your {subscriptionState.planTier} Plan:</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Unlimited QR code scans &amp; dynamic routing</span>
-                </li>
-                <li className="flex items-center gap-2">
+                  <span>Unlimited QR scans &amp; dynamic routing</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Smart Review Shielding (≤ 3★ complaints routed to private inbox)</span>
-                </li>
-                <li className="flex items-center gap-2">
+                  <span>Smart Negative Review Shielding (&le; 3★)</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>AI Keyword Enrichment for Google 5-star reviews</span>
-                </li>
-                <li className="flex items-center gap-2">
+                  <span>AI Keyword Enrichment for Google &amp; TripAdvisor</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Custom Center Logo QR code + Printable Standee generator</span>
-                </li>
-              </ul>
+                  <span>Custom Center Logo QR code + Standee Studio</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1716,7 +2092,7 @@ export default function BusinessDashboardPage() {
               Your public QR code and review link have been <strong>paused</strong>. Settle your pending renewal payment of <strong>₹{subscriptionState.planPrice}</strong> via Razorpay to instantly unlock your dashboard and reactivate your customer review funnel.
             </p>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 mb-6 text-xs text-slate-700">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 mb-4 text-xs text-slate-700">
               <div className="flex justify-between">
                 <span className="text-slate-500">Plan Tier:</span>
                 <span className="font-bold">{subscriptionState.planTier}</span>
@@ -1725,10 +2101,46 @@ export default function BusinessDashboardPage() {
                 <span className="text-slate-500">Subscription Status:</span>
                 <span className="font-bold text-rose-600">OVERDUE / SUSPENDED</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Base Renewal Fee:</span>
+                <span className="font-semibold text-slate-800">₹{subscriptionState.planPrice}</span>
+              </div>
+              {appliedCheckoutCoupon && (
+                <div className="flex justify-between text-emerald-600 font-bold">
+                  <span>Coupon Discount ({appliedCheckoutCoupon.code}):</span>
+                  <span>-₹{appliedCheckoutCoupon.discountAmount}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-slate-200 pt-2 text-sm">
                 <span className="font-bold text-slate-900">Total Due:</span>
-                <span className="font-extrabold text-blue-600">₹{subscriptionState.planPrice}</span>
+                <span className="font-extrabold text-blue-600">
+                  ₹{Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0))}
+                </span>
               </div>
+            </div>
+
+            {/* Coupon Apply for Suspended State */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter coupon code"
+                  value={checkoutCouponInput}
+                  onChange={(e) => setCheckoutCouponInput(e.target.value.toUpperCase())}
+                  className="w-full text-xs font-mono p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleApplySubscriptionCoupon()}
+                  disabled={couponValidating || !checkoutCouponInput.trim()}
+                  className="px-3 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+                >
+                  {couponValidating ? "..." : "Apply"}
+                </button>
+              </div>
+              {couponError && (
+                <p className="text-[11px] text-rose-500 mt-1 text-left font-medium">{couponError}</p>
+              )}
             </div>
 
             {/* ONLY ACTION ENABLED: PAY WITH RAZORPAY */}
@@ -1745,7 +2157,9 @@ export default function BusinessDashboardPage() {
               ) : (
                 <>
                   <CreditCard className="w-5 h-5" />
-                  <span>Pay ₹{subscriptionState.planPrice} with Razorpay</span>
+                  <span>
+                    Pay ₹{Math.max(0, subscriptionState.planPrice - (appliedCheckoutCoupon?.discountAmount || 0))} with Razorpay
+                  </span>
                 </>
               )}
             </button>
@@ -1781,9 +2195,17 @@ export default function BusinessDashboardPage() {
                 <span className="text-slate-500">Gateway:</span>
                 <span className="font-semibold text-blue-600">Razorpay (Test Mode)</span>
               </div>
+              {pendingOrderDetails?.couponCode && (
+                <div className="flex justify-between text-emerald-600 font-semibold">
+                  <span>Coupon ({pendingOrderDetails.couponCode}):</span>
+                  <span>-₹{pendingOrderDetails.discountAmount || 0}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-blue-200 pt-2 text-sm font-bold">
                 <span>Amount:</span>
-                <span className="text-slate-900">₹{subscriptionState.planPrice}</span>
+                <span className="text-slate-900">
+                  {formatCurrency(pendingOrderDetails?.planPrice ?? subscriptionState.planPrice, selectedCurrency)}
+                </span>
               </div>
             </div>
 
@@ -2083,12 +2505,80 @@ export default function BusinessDashboardPage() {
                     </div>
                   </div>
 
+                  {/* Coupon Apply for Standee Order */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Have a Standee Promo Coupon?</span>
+                      </span>
+                      {appliedStandeeCoupon && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveStandeeCoupon}
+                          className="text-[11px] text-rose-500 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </label>
+
+                    {appliedStandeeCoupon ? (
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span className="font-mono font-bold text-xs text-emerald-800">{appliedStandeeCoupon.code}</span>
+                          <span className="text-[11px] text-emerald-700">
+                            (-₹{appliedStandeeCoupon.discountAmount} discount applied!)
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="e.g. FREESTANDEE, SAVE100"
+                            value={standeeCouponInput}
+                            onChange={(e) => {
+                              setStandeeCouponInput(e.target.value.toUpperCase());
+                              setStandeeCouponError(null);
+                            }}
+                            className="flex-1 text-xs font-mono p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleApplyStandeeCoupon()}
+                            disabled={standeeCouponValidating || !standeeCouponInput.trim()}
+                            className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+                          >
+                            {standeeCouponValidating ? "..." : "Apply"}
+                          </button>
+                        </div>
+                        {standeeCouponError && (
+                          <p className="text-[11px] text-rose-500 mt-1 font-medium">{standeeCouponError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Total & Summary Box */}
                   <div className="p-3.5 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-2xl border border-slate-200 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] text-slate-500">Total Amount Payable:</div>
-                      <div className="text-base font-black text-slate-900">
-                        ₹{calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity)}
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-base font-black text-slate-900">
+                          ₹{Math.max(
+                            0,
+                            calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity) -
+                              (appliedStandeeCoupon?.discountAmount || 0)
+                          )}
+                        </span>
+                        {appliedStandeeCoupon && (
+                          <span className="text-xs text-slate-400 line-through">
+                            ₹{calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       razorpay_signature,
       targetBusinessId,
       isMock,
+      couponCode,
     } = await req.json();
 
     let businessId = session.businessId || targetBusinessId;
@@ -58,13 +59,23 @@ export async function POST(req: NextRequest) {
     const newPeriodEnd = new Date(Date.now() + cycleDays * 24 * 60 * 60 * 1000);
     const paymentRef = razorpay_payment_id || `pay_sim_${Date.now()}`;
 
+    // If coupon used, increment its used count
+    if (couponCode && typeof couponCode === "string") {
+      const cleanCode = couponCode.toUpperCase().trim();
+      await db.coupon.update({
+        where: { code: cleanCode },
+        data: { usedCount: { increment: 1 } },
+      }).catch(() => {});
+    }
+
+    const couponNote = couponCode ? ` (Coupon: ${couponCode})` : "";
     const updated = await db.business.update({
       where: { id: businessId },
       data: {
         subscriptionStatus: "ACTIVE",
         lastPaymentDate: new Date(),
         currentPeriodEnd: newPeriodEnd,
-        billingNotes: `Renewed via Razorpay (Ref: ${paymentRef}) on ${new Date().toLocaleDateString()}`,
+        billingNotes: `Renewed via Razorpay (Ref: ${paymentRef}${couponNote}) on ${new Date().toLocaleDateString()}`,
       },
     });
 
