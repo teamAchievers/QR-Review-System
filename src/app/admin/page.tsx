@@ -172,8 +172,42 @@ export default function MasterAdminPage() {
     }
   };
 
-  // Admin Navigation Tab State
-  const [adminTab, setAdminTab] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS">("BUSINESSES");
+  // Admin Navigation Tab State with URL & LocalStorage persistence
+  const [adminTab, setAdminTabState] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS">("BUSINESSES");
+
+  const setAdminTab = useCallback((tab: "BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS") => {
+    setAdminTabState(tab);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("admin_active_tab", tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", tab.toLowerCase());
+        window.history.replaceState(null, "", url.toString());
+      } catch (e) {}
+    }
+  }, []);
+
+  // Restore active tab from URL or LocalStorage on mount so browser refresh preserves the exact page/tab
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlTab = searchParams.get("tab")?.toUpperCase();
+      const validTabs = ["BUSINESSES", "PLANS", "COUPONS", "OFFERS", "PAYMENTS"];
+
+      if (urlTab && validTabs.includes(urlTab)) {
+        setAdminTabState(urlTab as any);
+        try { localStorage.setItem("admin_active_tab", urlTab); } catch (e) {}
+      } else {
+        const savedTab = localStorage.getItem("admin_active_tab")?.toUpperCase();
+        if (savedTab && validTabs.includes(savedTab)) {
+          setAdminTabState(savedTab as any);
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", savedTab.toLowerCase());
+          window.history.replaceState(null, "", url.toString());
+        }
+      }
+    }
+  }, []);
 
   // Payment Gateway Configuration State
   const [paymentConfig, setPaymentConfig] = useState({

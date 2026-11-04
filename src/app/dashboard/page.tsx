@@ -87,7 +87,45 @@ interface FeedbackItem {
 export default function BusinessDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"qr" | "inbox" | "settings" | "billing">("qr");
+  const [activeTab, setActiveTabState] = useState<"qr" | "inbox" | "settings" | "billing">("qr");
+
+  const setActiveTab = useCallback((tab: "qr" | "inbox" | "settings" | "billing") => {
+    setActiveTabState(tab);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("dashboard_active_tab", tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", tab);
+        window.history.replaceState(null, "", url.toString());
+      } catch (e) {}
+    }
+  }, []);
+
+  // Restore active tab & query actions on mount so browser refresh preserves the exact page/tab
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlTab = searchParams.get("tab")?.toLowerCase();
+      const validTabs = ["qr", "inbox", "settings", "billing"];
+
+      if (urlTab && validTabs.includes(urlTab)) {
+        setActiveTabState(urlTab as any);
+        try { localStorage.setItem("dashboard_active_tab", urlTab); } catch (e) {}
+      } else {
+        const savedTab = localStorage.getItem("dashboard_active_tab")?.toLowerCase();
+        if (savedTab && validTabs.includes(savedTab)) {
+          setActiveTabState(savedTab as any);
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", savedTab);
+          window.history.replaceState(null, "", url.toString());
+        }
+      }
+
+      if (searchParams.get("action") === "order-standee") {
+        setOrderModalOpen(true);
+      }
+    }
+  }, []);
 
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState | null>(null);
