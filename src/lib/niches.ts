@@ -179,6 +179,74 @@ export const NICHE_CONFIGS: NicheConfig[] = [
     defaultKeywords: "trusted legal advice, responsive professional, high expertise, transparent pricing, exceptional results",
   },
   {
+    id: "marketing",
+    name: "Marketing, Advertising & Digital Agency",
+    categoryAliases: ["marketing", "digital marketing", "seo", "advertising", "social media", "ad agency", "growth agency", "pr agency"],
+    quickTags: [
+      "High ROI & Lead Growth",
+      "Creative Campaign Strategy",
+      "Fast & Responsive Communication",
+      "Transparent Analytics & Reports",
+      "Deep Market Understanding",
+      "Skilled & Passionate Team",
+      "Smooth Execution & Delivery",
+      "Highly Strategic Advice",
+    ],
+    placeholder: "tell us what you loved (e.g. lead generation, creative campaigns, prompt team, clear reports)...",
+    defaultKeywords: "digital marketing agency, high roi campaigns, seo growth, creative advertising, data driven strategy",
+  },
+  {
+    id: "design",
+    name: "Graphic, UI/UX & Brand Design Studio",
+    categoryAliases: ["design", "graphic design", "ui/ux", "branding", "brand design", "creative agency", "web design", "product design"],
+    quickTags: [
+      "Stunning Modern Aesthetics",
+      "Intuitive User Experience",
+      "Fast Turnaround & Revisions",
+      "Strong Brand Identity",
+      "Attentive to Minor Details",
+      "Pixel-Perfect Deliverables",
+      "Collaborative & Creative Team",
+      "Exceeded Design Expectations",
+    ],
+    placeholder: "tell us what you loved (e.g. modern branding, intuitive ui/ux, quick revisions, creative concepts)...",
+    defaultKeywords: "creative design agency, modern branding, ui ux design, graphic designer, brand identity studio",
+  },
+  {
+    id: "architecture",
+    name: "Architecture & Structural Planning Firm",
+    categoryAliases: ["architecture", "architect", "structural", "blueprint", "building design", "elevation", "civil planning"],
+    quickTags: [
+      "Innovative Modern Blueprints",
+      "Flawless Space Utilization",
+      "Sustainable & Eco-Conscious",
+      "Smooth Regulatory Approvals",
+      "Visionary Design Concept",
+      "Attentive On-Site Oversight",
+      "Clear Timelines & Milestones",
+      "Transparent Budget Planning",
+    ],
+    placeholder: "tell us what you loved (e.g. visionary design, smart space utilization, smooth approvals, structural quality)...",
+    defaultKeywords: "top architecture firm, modern home architects, innovative building design, structural planning, sustainable architecture",
+  },
+  {
+    id: "interior",
+    name: "Interior Design & Home Decor Studio",
+    categoryAliases: ["interior", "interior design", "decor", "home decor", "renovation", "furnishing", "space planning", "fitout", "modular kitchen"],
+    quickTags: [
+      "Stunning Luxurious Aesthetics",
+      "Smart & Functional Layout",
+      "Premium Material Selection",
+      "Flawless Finishing & Execution",
+      "On-Time Project Delivery",
+      "Warm & Personalized Vibe",
+      "Transparent Cost Breakdown",
+      "Hassle-Free Renovation Experience",
+    ],
+    placeholder: "tell us what you loved (e.g. stunning aesthetic, smart storage, premium finishing, hassle-free execution)...",
+    defaultKeywords: "luxury interior design, modern home decor, modular kitchen, bespoke furniture, flawless interior finishing",
+  },
+  {
     id: "general",
     name: "General Business & Services",
     categoryAliases: ["general", "other", "services", "agency"],
@@ -206,16 +274,27 @@ export function getNicheConfig(category?: string | null, customKeywords?: string
 
   const searchText = `${category || ""} ${customKeywords || ""}`.toLowerCase();
 
+  // 1. Direct ID or exact Name match
+  const directMatch = NICHE_CONFIGS.find(
+    (n) => n.id.toLowerCase() === category?.toLowerCase() || n.name.toLowerCase() === category?.toLowerCase()
+  );
+  if (directMatch) return directMatch;
+
+  // 2. Match by longest alias first so specific niches (e.g. "interior design") take priority over generic words ("design")
+  let bestMatch: NicheConfig | null = null;
+  let longestMatchLength = 0;
+
   for (const config of NICHE_CONFIGS) {
     if (config.id === "general") continue;
     for (const alias of config.categoryAliases) {
-      if (searchText.includes(alias)) {
-        return config;
+      if (searchText.includes(alias.toLowerCase()) && alias.length > longestMatchLength) {
+        bestMatch = config;
+        longestMatchLength = alias.length;
       }
     }
   }
 
-  return defaultNiche;
+  return bestMatch || defaultNiche;
 }
 
 /**

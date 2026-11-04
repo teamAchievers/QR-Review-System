@@ -35,11 +35,12 @@ The customer's original words were: "${userComment}".
 
 Task: Rewrite and polish their feedback into 2 different authentic, enthusiastic 5-star Google review options.
 Requirements:
-1. Naturally and seamlessly weave in 2 or 3 of these SEO keywords: ${keywordList.join(", ")}.
-2. Keep the tone ${tone || "enthusiastic, warm, and genuine"}.
-3. The review MUST sound 100% human, honest, and natural—do NOT make it sound robotic or like awkward keyword stuffing.
-4. Keep each option around 3 to 5 sentences (approx 50-80 words).
-5. Output format: Return the two options separated by "===OPTION===". Do NOT include introductory text, numbers, or markdown formatting.`;
+1. Write the review using casual, authentic lowercase letters throughout (all lowercase letters, as everyday mobile users write unstaged Google reviews).
+2. Naturally and seamlessly weave in 2 or 3 of these SEO keywords in lowercase: ${keywordList.map((k) => k.toLowerCase()).join(", ")}.
+3. Keep the tone ${tone || "enthusiastic, warm, and genuine"}.
+4. The review MUST sound 100% human, honest, and natural—do NOT make it sound robotic or like awkward keyword stuffing.
+5. Keep each option around 3 to 4 sentences (approx 40-70 words).
+6. Output format: Return the two options separated by "===OPTION===". Do NOT include introductory text, numbers, or markdown formatting.`;
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -62,7 +63,7 @@ Requirements:
         if (text) {
           const options = text
             .split("===OPTION===")
-            .map((s: string) => s.trim().replace(/^Option\s*\d+:?/i, "").trim())
+            .map((s: string) => s.trim().replace(/^Option\s*\d+:?/i, "").trim().toLowerCase())
             .filter((s: string) => s.length > 20);
 
           if (options.length > 0) {
@@ -76,16 +77,21 @@ Requirements:
   }
 
   // 2. Intelligent Heuristic / Algorithmic Fallback Engine
-  // Takes the user's authentic thoughts and smoothly stitches in business keywords
-  const cleanInput = userComment.trim().replace(/[.!?]+$/, "");
-  const kw1 = keywordList[0] || "top-notch service";
-  const kw2 = keywordList[1] || "friendly staff";
-  const kw3 = keywordList[2] || "great quality";
-  const locPhrase = city ? ` here in ${city}` : "";
+  // Writes authentic customer reviews formatted in natural, casual lowercase letters
+  const cleanInput = userComment
+    .trim()
+    .replace(/[.!?]+$/, "")
+    .replace(/^(i loved the|loved the|i liked the|liked the|loved|liked)\s+/i, "")
+    .toLowerCase();
+  const kw1 = (keywordList[0] || "top-notch service").toLowerCase();
+  const kw2 = (keywordList[1] || "friendly staff").toLowerCase();
+  const kw3 = (keywordList[2] || "great quality").toLowerCase();
+  const bName = businessName.toLowerCase();
+  const locPhrase = city ? ` in ${city.toLowerCase()}` : "";
 
-  const optionA = `Had a fantastic experience at ${businessName}! ${cleanInput}. From start to finish, their attention to detail and ${kw1} really stood out. You can tell they take true pride in their work and ${kw2}. 10/10, definitely my go-to choice${locPhrase} and highly recommended!`;
+  const optionA = `had a fantastic experience with ${bName}! ${cleanInput ? `${cleanInput}. ` : ""}from start to finish, their attention to detail and ${kw1} really stood out. you can tell they take true pride in their work and ${kw2}. definitely my go-to choice${locPhrase} and highly recommended!`.toLowerCase();
 
-  const optionB = `Such a wonderful visit to ${businessName}! ${cleanInput}. It is so hard to find places that consistently deliver both ${kw2} and ${kw3}, but this team nailed it. Super welcoming atmosphere and truly ${kw1}. Will definitely be returning and telling friends!`;
+  const optionB = `such a wonderful experience with ${bName}! ${cleanInput ? `loved the ${cleanInput}. ` : ""}it is so rare to find places that consistently deliver both ${kw2} and ${kw3}, but this team completely nailed it. super welcoming atmosphere and truly ${kw1}. will definitely be returning!`.toLowerCase();
 
   return [optionA, optionB];
 }

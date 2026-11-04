@@ -112,17 +112,17 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
 
   // Enhance positive review with business keywords & selected niche tags
   const handleEnhanceReview = async () => {
-    // Merge user written input with any selected niche tags
-    let rawComment = positiveComment.trim();
+    // Merge user written input with any selected niche tags in lowercase
+    let rawComment = positiveComment.trim().toLowerCase();
     if (selectedTags.length > 0) {
-      const tagsNote = `Particularly impressed by the ${selectedTags.join(" and ").toLowerCase()}.`;
+      const tagsNote = `particularly impressed by the ${selectedTags.map((t) => t.toLowerCase()).join(" and ")}.`;
       if (rawComment) {
         rawComment = `${rawComment} ${tagsNote}`;
       } else {
-        rawComment = `Great experience! ${tagsNote}`;
+        rawComment = `great experience! ${tagsNote}`;
       }
     } else if (!rawComment) {
-      rawComment = "Everything was wonderful, loved the quality, service and atmosphere!";
+      rawComment = "everything was wonderful, loved the quality, service and atmosphere!";
     }
 
     setGeneratingAI(true);
@@ -139,11 +139,12 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
 
       const data = await res.json();
       if (data.options && data.options.length > 0) {
-        setEnhancedOptions(data.options);
+        const lowerOptions = data.options.map((opt: string) => opt.toLowerCase());
+        setEnhancedOptions(lowerOptions);
         setSelectedOptionIndex(0);
-        setFinalReviewText(data.options[0]);
+        setFinalReviewText(lowerOptions[0]);
       } else {
-        setFinalReviewText(rawComment);
+        setFinalReviewText(rawComment.toLowerCase());
       }
       if (data.googleReviewUrl) {
         setGoogleUrl(data.googleReviewUrl);
@@ -151,7 +152,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
       setStep("HIGH_ENHANCED");
     } catch (err) {
       console.error(err);
-      setFinalReviewText(rawComment);
+      setFinalReviewText(rawComment.toLowerCase());
       setStep("HIGH_ENHANCED");
     } finally {
       setGeneratingAI(false);
