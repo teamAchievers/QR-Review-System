@@ -32,7 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
-import { convertInrToUsd, formatCurrency } from "@/lib/currency";
+import { convertFromInr, formatCurrency, isCurrencyStrongerThanInr, CURRENCY_METADATA } from "@/lib/currency";
 
 interface BusinessProfile {
   id: string;
@@ -124,8 +124,32 @@ export default function BusinessDashboardPage() {
 
   // Settings form state
   const [savingSettings, setSavingSettings] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState<"INR" | "USD">("INR");
-  const getDisplayPrice = (baseInr: number) => selectedCurrency === "USD" ? convertInrToUsd(baseInr, 85, 1.5) : baseInr;
+  const [selectedCurrency, setSelectedCurrency] = useState<string>("INR");
+  const [detectedGeo, setDetectedGeo] = useState<{
+    country: string;
+    currency: string;
+    currencyName: string;
+    symbol: string;
+    isStrongerThanInr: boolean;
+    multiplier: number;
+  } | null>(null);
+
+  const getDisplayPrice = (baseInr: number) => {
+    return convertFromInr(baseInr, selectedCurrency, 1.5).convertedAmount;
+  };
+
+  // Auto-detect IP location & currency on mount
+  useEffect(() => {
+    fetch("/api/geo/detect")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.currency) {
+          setDetectedGeo(data);
+          setSelectedCurrency(data.currency);
+        }
+      })
+      .catch((err) => console.warn("IP Geo detection warning:", err));
+  }, []);
   const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [formData, setFormData] = useState({
