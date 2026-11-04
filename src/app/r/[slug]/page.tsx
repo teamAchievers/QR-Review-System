@@ -23,6 +23,8 @@ export default async function ReviewPage({ params }: Props) {
       minGoogleStar: true,
       googleReviewUrl: true,
       googlePlaceId: true,
+      tripadvisorReviewUrl: true,
+      reviewPlatform: true,
       keywords: true,
       subscriptionStatus: true,
       currentPeriodEnd: true,

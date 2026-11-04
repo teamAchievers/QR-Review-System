@@ -99,6 +99,9 @@ export default function BusinessDashboardPage() {
   });
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [selectedQrPlatform, setSelectedQrPlatform] = useState<"google" | "tripadvisor">("google");
+  const [tripadvisorQrDataUrl, setTripadvisorQrDataUrl] = useState<string>("");
+  const [loadingTripadvisorQr, setLoadingTripadvisorQr] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Razorpay payment state
@@ -112,7 +115,8 @@ export default function BusinessDashboardPage() {
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any>(null);
   const [standeeForm, setStandeeForm] = useState({
-    standeeType: "ACRYLIC_A6", // ACRYLIC_A6, WOODEN_A5, METAL_TENT
+    standeeType: "ACRYLIC_A6",
+    standeePlatform: "GOOGLE",
     quantity: 1,
     contactName: "",
     contactPhone: "",
@@ -162,6 +166,8 @@ export default function BusinessDashboardPage() {
     logoUrl: "",
     googleReviewUrl: "",
     googlePlaceId: "",
+    tripadvisorReviewUrl: "",
+    reviewPlatform: "GOOGLE",
     keywords: "",
     targetTone: "",
     minGoogleStar: 4,
@@ -199,6 +205,8 @@ export default function BusinessDashboardPage() {
           logoUrl: data.business.logoUrl || "",
           googleReviewUrl: data.business.googleReviewUrl || "",
           googlePlaceId: data.business.googlePlaceId || "",
+          tripadvisorReviewUrl: data.business.tripadvisorReviewUrl || "",
+          reviewPlatform: data.business.reviewPlatform || "GOOGLE",
           keywords: data.business.keywords || "",
           targetTone: data.business.targetTone || "",
           poweredByText: data.business.poweredByText || "Unbox Studio",
@@ -226,6 +234,23 @@ export default function BusinessDashboardPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleSwitchQrPlatform = async (platform: "google" | "tripadvisor") => {
+    setSelectedQrPlatform(platform);
+    if (!business) return;
+    if (platform === "tripadvisor" && !tripadvisorQrDataUrl) {
+      setLoadingTripadvisorQr(true);
+      try {
+        const res = await fetch(`/api/qr?slug=${business.slug}&platform=tripadvisor`);
+        const json = await res.json();
+        if (json.dataUrl) setTripadvisorQrDataUrl(json.dataUrl);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingTripadvisorQr(false);
+      }
+    }
+  };
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -338,7 +363,8 @@ export default function BusinessDashboardPage() {
   };
 
   const handleDownloadBrandedPng = () => {
-    if (!qrDataUrl || !business) return;
+    const activeQrUrl = selectedQrPlatform === "tripadvisor" ? tripadvisorQrDataUrl : qrDataUrl;
+    if (!activeQrUrl || !business) return;
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -353,11 +379,11 @@ export default function BusinessDashboardPage() {
         const pngUrl = canvas.toDataURL("image/png");
         const a = document.createElement("a");
         a.href = pngUrl;
-        a.download = `qr-${business.slug}-branded.png`;
+        a.download = `qr-${business.slug}-${selectedQrPlatform}-branded.png`;
         a.click();
       }
     };
-    img.src = qrDataUrl;
+    img.src = activeQrUrl;
   };
 
   const handleUpdateFeedbackStatus = async (feedbackId: string, newStatus: string, currentNotes: string | null) => {
@@ -589,21 +615,30 @@ export default function BusinessDashboardPage() {
         </head>
         <body>
           <div class="standee-card">
-            <div class="accent-bar"></div>
-            <div class="logo-badge">${bName.charAt(0)}</div>
+            <div class="accent-bar" style="${selectedQrPlatform === 'tripadvisor' ? 'background: linear-gradient(90deg, #00aa6c, #008f5a);' : ''}"></div>
+            <div class="logo-badge" style="${selectedQrPlatform === 'tripadvisor' ? 'background: #00aa6c;' : ''}">${bName.charAt(0)}</div>
             <h1>${bName}</h1>
             ${bCity ? `<div class="city">${bCity}</div>` : ""}
-            <div class="stars">★★★★★</div>
-            <h2>How Was Your Visit?</h2>
-            <div class="subtitle">Scan with your phone camera to share your honest thoughts with us</div>
+            ${selectedQrPlatform === 'tripadvisor'
+              ? `<div style="display:flex; justify-content:center; gap:6px; margin: 8px 0;">
+                  <span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#00aa6c;"></span>
+                  <span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#00aa6c;"></span>
+                  <span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#00aa6c;"></span>
+                  <span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#00aa6c;"></span>
+                  <span style="display:inline-block; width:16px; height:16px; border-radius:50%; background:#00aa6c;"></span>
+                </div>`
+              : `<div class="stars">★★★★★</div>`
+            }
+            <h2>${selectedQrPlatform === 'tripadvisor' ? 'Review Us on TripAdvisor' : 'How Was Your Visit?'}</h2>
+            <div class="subtitle">${selectedQrPlatform === 'tripadvisor' ? 'Scan with your camera to review us on TripAdvisor' : 'Scan with your phone camera to share your honest thoughts with us'}</div>
             <div class="qr-wrap">
-              <img src="${qrDataUrl}" class="qr-img" alt="Scan to Review" />
+              <img src="${selectedQrPlatform === 'tripadvisor' ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}" class="qr-img" alt="Scan to Review" />
             </div>
             <div>
-              <span class="pill">⚡ Quick 15-second feedback</span>
+              <span class="pill">${selectedQrPlatform === 'tripadvisor' ? '🟢 Official TripAdvisor Review' : '⚡ Quick 15-second feedback'}</span>
             </div>
             <div class="brand-footer">
-              Powered by <strong>{business?.poweredByText || "Unbox Studio"}</strong>
+              Powered by <strong>${business?.poweredByText || "Unbox Studio"}</strong>
             </div>
           </div>
         </body>
@@ -629,7 +664,11 @@ export default function BusinessDashboardPage() {
       const res = await fetch("/api/dashboard/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          tripadvisorReviewUrl: formData.tripadvisorReviewUrl,
+          reviewPlatform: formData.reviewPlatform,
+        }),
       });
       if (res.ok) {
         setSettingsSaved(true);
@@ -862,10 +901,42 @@ export default function BusinessDashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-5 space-y-5">
               <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
+                {/* Platform Selector Switcher */}
+                <div className="flex items-center gap-2 mb-4 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchQrPlatform("google")}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      selectedQrPlatform === "google"
+                        ? "bg-white text-blue-700 shadow-sm border border-slate-200"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>Google Review QR</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchQrPlatform("tripadvisor")}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      selectedQrPlatform === "tripadvisor"
+                        ? "bg-[#00aa6c] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <span>TripAdvisor QR</span>
+                  </button>
+                </div>
+
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-base text-slate-900">Your Branded Review QR</h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                    Logo In Center
+                  <h3 className="font-bold text-base text-slate-900">
+                    {selectedQrPlatform === "tripadvisor" ? "TripAdvisor Review QR" : "Google Review QR"}
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    selectedQrPlatform === "tripadvisor"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-blue-50 text-blue-700 border-blue-200"
+                  }`}>
+                    {selectedQrPlatform === "tripadvisor" ? "TripAdvisor Optimized" : "Logo In Center"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mb-5">
@@ -873,13 +944,17 @@ export default function BusinessDashboardPage() {
                 </p>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col items-center justify-center mb-5">
-                  {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="Review QR Code" className="w-56 h-auto rounded-xl shadow-xs" />
+                  {(selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) ? (
+                    <img
+                      src={selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
+                      alt="Review QR Code"
+                      className="w-56 h-auto rounded-xl shadow-xs"
+                    />
                   ) : (
                     <div className="w-56 h-56 bg-slate-200 animate-pulse rounded-xl" />
                   )}
                   <span className="mt-3 text-[11px] font-mono text-slate-500 break-all text-center">
-                    {publicReviewUrl}
+                    {publicReviewUrl}{selectedQrPlatform === "tripadvisor" ? "?platform=tripadvisor" : ""}
                   </span>
                 </div>
 
@@ -901,8 +976,8 @@ export default function BusinessDashboardPage() {
                       <span>Download PNG</span>
                     </button>
                     <a
-                      href={`/api/qr?slug=${business.slug}&format=svg`}
-                      download={`qr-${business.slug}.svg`}
+                      href={`/api/qr?slug=${business.slug}&platform=${selectedQrPlatform}&format=svg`}
+                      download={`qr-${business.slug}-${selectedQrPlatform}.svg`}
                       className="py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-semibold text-xs text-center flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
@@ -951,11 +1026,17 @@ export default function BusinessDashboardPage() {
                   id="printable-standee"
                   className="max-w-sm mx-auto bg-white border-2 border-slate-300 rounded-3xl p-8 text-center shadow-lg relative overflow-hidden"
                 >
-                  <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-blue-600 to-indigo-600" />
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-3 ${
+                      selectedQrPlatform === "tripadvisor"
+                        ? "bg-gradient-to-r from-[#00aa6c] to-emerald-700"
+                        : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                    }`}
+                  />
 
                   <div
                     className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center text-white font-bold text-xl mb-3 shadow-md"
-                    style={{ backgroundColor: business.primaryColor || "#2563eb" }}
+                    style={{ backgroundColor: selectedQrPlatform === "tripadvisor" ? "#00aa6c" : (business.primaryColor || "#2563eb") }}
                   >
                     {business.name.charAt(0)}
                   </div>
@@ -963,24 +1044,46 @@ export default function BusinessDashboardPage() {
                   <h4 className="font-extrabold text-xl text-slate-900 leading-tight">{business.name}</h4>
                   {business.city && <p className="text-xs text-slate-400 mt-0.5">{business.city}</p>}
 
-                  <div className="flex justify-center gap-1 my-3">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
+                  {selectedQrPlatform === "tripadvisor" ? (
+                    <div className="flex justify-center items-center gap-1.5 my-3">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span key={s} className="w-4 h-4 rounded-full bg-[#00aa6c] inline-block shadow-xs border border-emerald-600" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex justify-center gap-1 my-3">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                  )}
 
-                  <h5 className="text-base font-bold text-slate-800 mt-2">How Was Your Visit?</h5>
+                  <h5 className="text-base font-bold text-slate-800 mt-2">
+                    {selectedQrPlatform === "tripadvisor" ? "Review Us on TripAdvisor" : "How Was Your Visit?"}
+                  </h5>
                   <p className="text-xs text-slate-500 mt-1 mb-4">
-                    Scan with your phone camera to share your honest thoughts with us
+                    {selectedQrPlatform === "tripadvisor"
+                      ? "Scan with your phone camera to share your review on TripAdvisor"
+                      : "Scan with your phone camera to share your honest thoughts with us"}
                   </p>
 
                   <div className="p-2 bg-slate-50 border-2 border-slate-200 rounded-2xl inline-block mb-3">
-                    {qrDataUrl && <img src={qrDataUrl} alt="Printable QR" className="w-48 h-auto rounded-lg" />}
+                    {(selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl) && (
+                      <img
+                        src={selectedQrPlatform === "tripadvisor" ? (tripadvisorQrDataUrl || qrDataUrl) : qrDataUrl}
+                        alt="Printable QR"
+                        className="w-48 h-auto rounded-lg"
+                      />
+                    )}
                   </div>
 
                   <div>
-                    <div className="text-[11px] font-semibold text-slate-600 bg-slate-100 py-1.5 px-3 rounded-full inline-block">
-                      ⚡ Quick 15-second feedback
+                    <div className={`text-[11px] font-semibold py-1.5 px-3 rounded-full inline-block ${
+                      selectedQrPlatform === "tripadvisor"
+                        ? "text-emerald-800 bg-emerald-50 border border-emerald-200"
+                        : "text-slate-600 bg-slate-100"
+                    }`}>
+                      {selectedQrPlatform === "tripadvisor" ? "🟢 Official TripAdvisor Review" : "⚡ Quick 15-second feedback"}
                     </div>
                   </div>
 
@@ -1674,7 +1777,36 @@ export default function BusinessDashboardPage() {
                 </div>
 
                 <form onSubmit={handlePlaceStandeeOrder} className="space-y-4 text-xs">
-                  {/* Step 1: Material Selection */}
+                  {/* Step 0: Standee Platform Brand */}
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      1. Select Standee Brand / Portal
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {[
+                        { id: "GOOGLE", label: "Google Reviews", badge: "Google Colors" },
+                        { id: "TRIPADVISOR", label: "TripAdvisor", badge: "TripAdvisor Green" },
+                        { id: "DUAL", label: "Dual-Sided Standee", badge: "Google + TripAdvisor" },
+                      ].map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => setStandeeForm({ ...standeeForm, standeePlatform: item.id as any })}
+                          className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                            standeeForm.standeePlatform === item.id
+                              ? "border-blue-600 bg-blue-50/40 shadow-xs"
+                              : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
+                          }`}
+                        >
+                          <div>
+                            <span className="font-bold text-slate-900 text-xs block">{item.label}</span>
+                            <span className="text-[10px] text-slate-500">{item.badge}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                                    {/* Step 1: Material Selection */}
                   <div>
                     <label className="block font-bold text-slate-800 mb-1.5">
                       1. Select Standee Material &amp; Format

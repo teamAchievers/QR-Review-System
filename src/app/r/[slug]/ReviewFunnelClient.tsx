@@ -15,6 +15,8 @@ interface BusinessData {
   minGoogleStar: number;
   googleReviewUrl: string;
   googlePlaceId: string | null;
+  tripadvisorReviewUrl?: string | null;
+  reviewPlatform?: string | null;
   keywords: string;
   subscriptionStatus?: string;
   isSuspended?: boolean;
@@ -48,7 +50,28 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
   const [finalReviewText, setFinalReviewText] = useState("");
   const [googleUrl, setGoogleUrl] = useState(business.googleReviewUrl || "");
+  const [tripadvisorUrl, setTripadvisorUrl] = useState(
+    business.tripadvisorReviewUrl ||
+      `https://www.tripadvisor.com/Search?q=${encodeURIComponent(business.name + (business.city ? " " + business.city : ""))}`
+  );
+  const [currentPlatform, setCurrentPlatform] = useState<string>("GOOGLE");
+  const [copiedTargetPlatform, setCopiedTargetPlatform] = useState<"google" | "tripadvisor">("google");
   const [copiedModalOpen, setCopiedModalOpen] = useState(false);
+
+  // Detect platform from URL search param (?platform=tripadvisor) or business setting
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const urlPlat = sp.get("platform");
+      if (urlPlat && (urlPlat.toLowerCase() === "tripadvisor" || urlPlat.toLowerCase() === "ta")) {
+        setCurrentPlatform("TRIPADVISOR");
+      } else if (urlPlat && urlPlat.toLowerCase() === "google") {
+        setCurrentPlatform("GOOGLE");
+      } else {
+        setCurrentPlatform(business.reviewPlatform || "GOOGLE");
+      }
+    }
+  }, [business.reviewPlatform]);
 
   // Track initial QR scan on mount
   useEffect(() => {
@@ -161,12 +184,11 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
     }
   };
 
-  // Copy to clipboard & open Google
-  const handleCopyAndOpenGoogle = async () => {
+  // Copy to clipboard & open Google or TripAdvisor
+  const handleCopyAndOpen = async (targetPlatform: "google" | "tripadvisor") => {
     try {
       await navigator.clipboard.writeText(finalReviewText);
     } catch {
-      // Fallback copy
       const textArea = document.createElement("textarea");
       textArea.value = finalReviewText;
       document.body.appendChild(textArea);
@@ -175,17 +197,22 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
       document.body.removeChild(textArea);
     }
 
-    // Track Google conversion
+    setCopiedTargetPlatform(targetPlatform);
+
+    // Track platform conversion
     fetch("/api/review/track-google", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: business.slug }),
+      body: JSON.stringify({ slug: business.slug, platform: targetPlatform }),
     }).catch(() => {});
 
-    // Open guidance modal and launch Google window
     setCopiedModalOpen(true);
-    window.open(googleUrl, "_blank", "noopener,noreferrer");
+    const targetDestUrl = targetPlatform === "tripadvisor" ? tripadvisorUrl : googleUrl;
+    window.open(targetDestUrl, "_blank", "noopener,noreferrer");
   };
+
+  const handleCopyAndOpenGoogle = () => handleCopyAndOpen("google");
+  const handleCopyAndOpenTripAdvisor = () => handleCopyAndOpen("tripadvisor");
 
   const starLabels: Record<number, string> = {
     1: "Very Unsatisfied",
@@ -472,7 +499,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>Generate &amp; Post on Google</span>
+                    <span>{currentPlatform === "TRIPADVISOR" ? "Generate & Review on TripAdvisor" : "Generate & Post on Google"}</span>
                   </>
                 )}
               </button>
@@ -539,20 +566,62 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
                 </div>
               </div>
 
-              {/* Primary Action Button */}
-              <button
-                type="button"
-                onClick={handleCopyAndOpenGoogle}
-                className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                <Copy className="w-5 h-5" />
-                <span>Copy &amp; Post on Google Reviews (5★)</span>
-                <ExternalLink className="w-4 h-4 opacity-75" />
-              </button>
-
-              <p className="text-center text-[11px] text-slate-400 mt-3">
-                Opens directly in Google Maps / Google Reviews
-              </p>
+              {/* Action Buttons for TripAdvisor / Google / Both */}
+              {currentPlatform === "TRIPADVISOR" ? (
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAndOpenTripAdvisor}
+                    className="w-full py-4 px-4 bg-[#00aa6c] hover:bg-[#008f5a] text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-5 h-5" />
+                    <span>Copy &amp; Post on TripAdvisor (5★)</span>
+                    <ExternalLink className="w-4 h-4 opacity-75" />
+                  </button>
+                  <p className="text-center text-[11px] text-slate-400 mt-3">
+                    Opens directly in TripAdvisor review page
+                  </p>
+                </div>
+              ) : currentPlatform === "BOTH" ? (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={handleCopyAndOpenTripAdvisor}
+                    className="w-full py-3.5 px-4 bg-[#00aa6c] hover:bg-[#008f5a] text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Post on TripAdvisor (5★)</span>
+                    <ExternalLink className="w-4 h-4 opacity-75" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyAndOpenGoogle}
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Post on Google Reviews (5★)</span>
+                    <ExternalLink className="w-4 h-4 opacity-75" />
+                  </button>
+                  <p className="text-center text-[11px] text-slate-400 mt-2">
+                    Choose which platform you want to review on!
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAndOpenGoogle}
+                    className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-5 h-5" />
+                    <span>Copy &amp; Post on Google Reviews (5★)</span>
+                    <ExternalLink className="w-4 h-4 opacity-75" />
+                  </button>
+                  <p className="text-center text-[11px] text-slate-400 mt-3">
+                    Opens directly in Google Maps / Google Reviews
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -578,7 +647,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
 
             <h3 className="text-xl font-black text-slate-900 mb-1">Review Copied to Clipboard!</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Google Review is open. Follow these quick steps to paste your review:
+              {copiedTargetPlatform === "tripadvisor" ? "TripAdvisor is open. Follow these quick steps to paste your review:" : "Google Review is open. Follow these quick steps to paste your review:"}
             </p>
 
             {/* Visual Step-by-Step Graphic */}
@@ -586,7 +655,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
               {/* Graphic Mockup of Long-Press -> Paste */}
               <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>How to Paste on Google:</span>
+                  <span>{copiedTargetPlatform === "tripadvisor" ? "How to Paste on TripAdvisor:" : "How to Paste on Google:"}</span>
                   <span className="text-blue-600 font-semibold">1-Second Action</span>
                 </div>
 
@@ -624,12 +693,16 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
             {/* Action Buttons */}
             <div className="space-y-2">
               <a
-                href={googleUrl}
+                href={copiedTargetPlatform === "tripadvisor" ? tripadvisorUrl : googleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                className={`w-full py-3.5 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                  copiedTargetPlatform === "tripadvisor"
+                    ? "bg-[#00aa6c] hover:bg-[#008f5a]"
+                    : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                }`}
               >
-                <span>Go to Google Review Box &amp; Paste</span>
+                <span>{copiedTargetPlatform === "tripadvisor" ? "Go to TripAdvisor & Paste" : "Go to Google Review Box & Paste"}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
 

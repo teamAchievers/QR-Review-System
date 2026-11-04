@@ -30,6 +30,8 @@ model Business {
   primaryColor    String      @default("#2563eb")
   googlePlaceId   String?
   googleReviewUrl String      @default("")
+  tripadvisorReviewUrl String? @default("")
+  reviewPlatform  String      @default("GOOGLE") // "GOOGLE", "TRIPADVISOR", "BOTH"
   phone           String?
   email           String?
   address         String?

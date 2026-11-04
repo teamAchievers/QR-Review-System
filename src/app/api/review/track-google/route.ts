@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    const { slug } = await req.json();
+    const { slug, platform } = await req.json();
     if (!slug) {
       return NextResponse.json({ error: "Slug is required" }, { status: 400 });
     }
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
         data: {
           businessId: business.id,
           rating: 5,
-          action: "COPIED_TO_GOOGLE",
+          action: platform === "tripadvisor" ? "COPIED_TO_TRIPADVISOR" : "COPIED_TO_GOOGLE",
           userAgent,
         },
       });

@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
         targetTone: true,
         googleReviewUrl: true,
         googlePlaceId: true,
+        tripadvisorReviewUrl: true,
+        reviewPlatform: true,
       },
     });
 
@@ -63,6 +65,8 @@ export async function POST(req: NextRequest) {
       success: true,
       businessName: business.name,
       googleReviewUrl: googleUrl,
+      tripadvisorReviewUrl: business.tripadvisorReviewUrl || "",
+      reviewPlatform: business.reviewPlatform || "GOOGLE",
       options: enhancedOptions,
       originalComment: comment,
       keywordsUsed: business.keywords,
