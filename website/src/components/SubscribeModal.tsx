@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getPortalUrl } from '../config';
 import { 
   X, 
   Check, 
@@ -25,11 +26,13 @@ interface SubscribeModalProps {
   initialPlanId?: string;
 }
 
-export const SubscribeModal: React.FC<SubscribeModalProps> = ({ 
+export const SubscribeModal: React.FC<SubscribeModalProps> = ({
+ 
   isOpen, 
   onClose, 
   initialPlanId = 'growth' 
 }) => {
+  const portalUrl = getPortalUrl();
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
   const [isAnnual, setIsAnnual] = useState<boolean>(true);
   const [step, setStep] = useState<number>(1); // 1: Plan, 2: Info, 3: Address & Google Place, 4: Success
@@ -402,7 +405,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <a
-                  href="http://localhost:3000/login"
+                  href={`${portalUrl}/login`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold shadow-lg shadow-blue-500/20 cursor-pointer flex items-center justify-center gap-1.5"

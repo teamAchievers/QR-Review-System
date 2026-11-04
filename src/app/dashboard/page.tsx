@@ -25,6 +25,10 @@ import {
   AlertOctagon,
   Lock,
   Tag,
+  Package,
+  Truck,
+  MapPin,
+  X,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
 
@@ -98,6 +102,21 @@ export default function BusinessDashboardPage() {
   const [paymentSuccessToast, setPaymentSuccessToast] = useState<string | null>(null);
   const [mockPaymentModalOpen, setMockPaymentModalOpen] = useState(false);
   const [pendingOrderDetails, setPendingOrderDetails] = useState<any>(null);
+
+  // Physical Standee Order Modal State
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState<any>(null);
+  const [standeeForm, setStandeeForm] = useState({
+    standeeType: "ACRYLIC_A6", // ACRYLIC_A6, WOODEN_A5, METAL_TENT
+    quantity: 1,
+    contactName: "",
+    contactPhone: "",
+    shippingAddress: "",
+    city: "",
+    postalCode: "",
+    courierNotes: "",
+  });
 
   // Settings form state
   const [savingSettings, setSavingSettings] = useState(false);
@@ -336,6 +355,50 @@ export default function BusinessDashboardPage() {
       });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const calculateStandeePrice = (type: string, qty: number) => {
+    const basePrices: Record<string, number> = {
+      ACRYLIC_A6: 499,
+      WOODEN_A5: 799,
+      METAL_TENT: 699,
+    };
+    const base = basePrices[type] || 499;
+    const discount = qty === 2 ? 100 : qty === 3 ? 250 : qty >= 5 ? 600 : 0;
+    return Math.max(0, base * qty - discount);
+  };
+
+  const handlePlaceStandeeOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!standeeForm.contactName.trim() || !standeeForm.contactPhone.trim() || !standeeForm.shippingAddress.trim()) {
+      alert("Please fill in contact name, phone, and complete shipping address.");
+      return;
+    }
+
+    setOrderSubmitting(true);
+    try {
+      const price = calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity);
+      const res = await fetch("/api/dashboard/orders/standee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...standeeForm,
+          totalPrice: price,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOrderSuccess(data.order);
+      } else {
+        alert(data.error || "Failed to place standee order.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error placing order. Please try again.");
+    } finally {
+      setOrderSubmitting(false);
     }
   };
 
@@ -817,18 +880,36 @@ export default function BusinessDashboardPage() {
 
             <div className="lg:col-span-7">
               <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div>
-                    <h3 className="font-bold text-base text-slate-900">Printable Table Tent / Card</h3>
-                    <p className="text-xs text-slate-500">Ready to print for your physical storefront</p>
+                    <h3 className="font-bold text-base text-slate-900">Table Tent &amp; QR Standee</h3>
+                    <p className="text-xs text-slate-500">Print yourself on paper or order a high-end physical acrylic standee</p>
                   </div>
-                  <button
-                    onClick={handlePrintStandee}
-                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs active:scale-95"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print Standee</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePrintStandee}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-200 active:scale-95"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Print Standee</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setStandeeForm((prev) => ({
+                          ...prev,
+                          contactName: business?.name ? `${business.name} Front Desk` : "",
+                          city: business?.city || "",
+                        }));
+                        setOrderSuccess(null);
+                        setOrderModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all active:scale-95"
+                    >
+                      <Package className="w-3.5 h-3.5 text-blue-200" />
+                      <span>Order Standee</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div
@@ -1362,6 +1443,289 @@ export default function BusinessDashboardPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= PHYSICAL STANDEE ORDER MODAL ================= */}
+      {orderModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 my-8 animate-in fade-in zoom-in-95 duration-200">
+            {orderSuccess ? (
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-emerald-200">
+                  <CheckCircle2 className="w-9 h-9" />
+                </div>
+
+                <h3 className="text-xl font-black text-slate-900 mb-1">Standee Order Confirmed!</h3>
+                <p className="text-xs text-slate-500 mb-5">
+                  Thank you! Your custom QR standee order has been received by the <strong>Unbox Studio</strong> production team.
+                </p>
+
+                <div className="bg-slate-50 rounded-2xl p-4 text-left space-y-2 mb-6 text-xs text-slate-700 border border-slate-200">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Order ID:</span>
+                    <span className="font-mono text-slate-800 font-bold">{orderSuccess.id.slice(-8).toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Model:</span>
+                    <span className="font-semibold text-slate-800">
+                      {orderSuccess.standeeType === "WOODEN_A5"
+                        ? "Deluxe Wood & Acrylic (A5)"
+                        : orderSuccess.standeeType === "METAL_TENT"
+                        ? "Brushed Metal Countertop Tent"
+                        : "Premium Crystal Acrylic (A6)"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Quantity:</span>
+                    <span className="font-semibold text-slate-800">{orderSuccess.quantity} Unit(s)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Total Price:</span>
+                    <span className="font-bold text-slate-900">₹{orderSuccess.totalPrice} (Free Delivery)</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-2">
+                    <span className="text-slate-400">Estimated Delivery:</span>
+                    <span className="font-semibold text-emerald-600">3 – 5 Business Days</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Delivering To:</span>
+                    <span className="font-medium text-slate-800 text-right truncate max-w-[200px]">
+                      {orderSuccess.contactName}, {orderSuccess.city || "India"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderModalOpen(false);
+                      setOrderSuccess(null);
+                    }}
+                    className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-md transition-all"
+                  >
+                    Back to Dashboard
+                  </button>
+
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Hi Unbox Studio Team, I placed a Standee Order #${orderSuccess.id.slice(-8).toUpperCase()} for ${business?.name}. Please share shipping updates!`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2.5 text-center text-xs text-blue-600 hover:text-blue-700 font-semibold"
+                  >
+                    Track via WhatsApp with Unbox Studio
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-start justify-between pb-3 border-b border-slate-100 mb-4">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 mb-1">
+                      <Truck className="w-3 h-3 text-blue-600" /> Free Pan-India Courier
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900">Order Physical QR Standee</h3>
+                    <p className="text-xs text-slate-500">
+                      Crafted &amp; customized with your logo QR by <strong>Unbox Studio</strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setOrderModalOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handlePlaceStandeeOrder} className="space-y-4 text-xs">
+                  {/* Step 1: Material Selection */}
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      1. Select Standee Material &amp; Format
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {[
+                        {
+                          id: "ACRYLIC_A6",
+                          title: "Crystal Acrylic",
+                          size: "A6 (4x6\")",
+                          desc: "Solid clear base",
+                          price: "₹499",
+                        },
+                        {
+                          id: "WOODEN_A5",
+                          title: "Deluxe Wood",
+                          size: "A5 (6x8\")",
+                          desc: "Solid oak base",
+                          price: "₹799",
+                        },
+                        {
+                          id: "METAL_TENT",
+                          title: "Metal Counter",
+                          size: "A6 (4x6\")",
+                          desc: "Brushed aluminum",
+                          price: "₹699",
+                        },
+                      ].map((item) => {
+                        const isSelected = standeeForm.standeeType === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setStandeeForm({ ...standeeForm, standeeType: item.id })}
+                            className={`p-3 rounded-2xl border text-left transition-all ${
+                              isSelected
+                                ? "bg-blue-50/80 border-blue-600 ring-2 ring-blue-500/20 text-slate-900"
+                                : "bg-white border-slate-200 hover:border-slate-300 text-slate-600"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-bold text-slate-900">{item.title}</span>
+                              <span className="font-bold text-blue-600">{item.price}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400">{item.size}</div>
+                            <div className="text-[10px] text-slate-500 mt-1 font-medium">{item.desc}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Quantity Selection */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-bold text-slate-800">2. Quantity</label>
+                      <span className="text-[11px] text-emerald-600 font-semibold">Bulk discounts applied automatically</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { qty: 1, label: "1 Unit" },
+                        { qty: 2, label: "2 Units (Save ₹100)" },
+                        { qty: 3, label: "3 Units (Save ₹250)" },
+                        { qty: 5, label: "5 Units (Save ₹600)" },
+                      ].map((q) => (
+                        <button
+                          key={q.qty}
+                          type="button"
+                          onClick={() => setStandeeForm({ ...standeeForm, quantity: q.qty })}
+                          className={`py-2 px-1 text-center rounded-xl border font-bold text-xs transition-all ${
+                            standeeForm.quantity === q.qty
+                              ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          <div>{q.qty} {q.qty === 1 ? "Standee" : "Pack"}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Step 3: Shipping Information */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block font-bold text-slate-800 mb-2 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                      <span>3. Shipping &amp; Contact Details</span>
+                    </label>
+
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Contact Person Name *"
+                            value={standeeForm.contactName}
+                            onChange={(e) => setStandeeForm({ ...standeeForm, contactName: e.target.value })}
+                            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="Phone / WhatsApp Number *"
+                            value={standeeForm.contactPhone}
+                            onChange={(e) => setStandeeForm({ ...standeeForm, contactPhone: e.target.value })}
+                            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <textarea
+                          rows={2}
+                          required
+                          placeholder="Complete Street Address (Shop/Clinic/Restaurant No., Building, Street) *"
+                          value={standeeForm.shippingAddress}
+                          onChange={(e) => setStandeeForm({ ...standeeForm, shippingAddress: e.target.value })}
+                          className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="City / State"
+                            value={standeeForm.city}
+                            onChange={(e) => setStandeeForm({ ...standeeForm, city: e.target.value })}
+                            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="PIN / Postal Code"
+                            value={standeeForm.postalCode}
+                            onChange={(e) => setStandeeForm({ ...standeeForm, postalCode: e.target.value })}
+                            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total & Summary Box */}
+                  <div className="p-3.5 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] text-slate-500">Total Amount Payable:</div>
+                      <div className="text-base font-black text-slate-900">
+                        ₹{calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        Free Courier Included
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Pay via Invoice / COD</div>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={orderSubmitting}
+                      className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      {orderSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Package className="w-4 h-4 text-blue-200" />
+                          <span>Place Standee Order (₹{calculateStandeePrice(standeeForm.standeeType, standeeForm.quantity)})</span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-center text-[10px] text-slate-400 mt-2">
+                      Handcrafted &amp; dispatched by <strong>Unbox Studio</strong> within 48 hours.
+                    </p>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       )}

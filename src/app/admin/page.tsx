@@ -22,6 +22,9 @@ import {
   DollarSign,
   AlertTriangle,
   RotateCw,
+  Package,
+  Truck,
+  MapPin,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 
@@ -74,6 +77,39 @@ export default function MasterAdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [subscriptionFilter, setSubscriptionFilter] = useState<string>("ALL");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+
+  // Standee Orders State
+  const [ordersModalOpen, setOrdersModalOpen] = useState(false);
+  const [standeeOrders, setStandeeOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  const fetchStandeeOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await fetch("/api/admin/orders/standee");
+      if (res.ok) {
+        const data = await res.json();
+        setStandeeOrders(data.orders || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, status: string, trackingNumber?: string) => {
+    try {
+      await fetch("/api/admin/orders/standee", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, status, trackingNumber }),
+      });
+      fetchStandeeOrders();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Create Business Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -151,6 +187,7 @@ export default function MasterAdminPage() {
 
   useEffect(() => {
     fetchStats();
+    fetchStandeeOrders();
   }, [fetchStats]);
 
   const handleLogout = async () => {
@@ -364,7 +401,23 @@ export default function MasterAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => {
+              fetchStandeeOrders();
+              setOrdersModalOpen(true);
+            }}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+          >
+            <Package className="w-4 h-4 text-amber-400" />
+            <span>Standee Orders</span>
+            {standeeOrders.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                {standeeOrders.length}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setCreateModalOpen(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
@@ -1119,6 +1172,133 @@ export default function MasterAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= STANDEE ORDERS MANAGEMENT MODAL ================= */}
+      {ordersModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Package className="w-5 h-5 text-amber-400" />
+                  <span>Physical Standee Orders</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    {standeeOrders.length} Total
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Custom printed QR table tents ordered by client businesses for fulfillment by Unbox Studio.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchStandeeOrders}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
+                  title="Refresh Orders"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setOrdersModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {loadingOrders ? (
+              <div className="text-center py-16 text-slate-400">
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs">Loading standee orders...</p>
+              </div>
+            ) : standeeOrders.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-300">No standee orders placed yet</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  When business owners click &quot;Order Standee&quot; from their dashboard, deliveries appear here for shipping.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {standeeOrders.map((ord: any) => (
+                  <div
+                    key={ord.id}
+                    className="p-5 bg-slate-800/80 border border-slate-700/70 rounded-2xl flex flex-col md:flex-row md:items-start justify-between gap-4"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+                          #{ord.id.slice(-8).toUpperCase()}
+                        </span>
+                        <span className="text-sm font-bold text-white">{ord.business?.name || "Business"}</span>
+                        <span className="text-xs text-slate-400">• {new Date(ord.createdAt).toLocaleDateString()}</span>
+                      </div>
+
+                      <div className="text-xs text-slate-300 space-y-1">
+                        <div>
+                          <strong>Item:</strong>{" "}
+                          <span className="text-blue-300 font-medium">
+                            {ord.standeeType === "WOODEN_A5"
+                              ? "Deluxe Wood & Acrylic Stand (A5)"
+                              : ord.standeeType === "METAL_TENT"
+                              ? "Brushed Metal Countertop Tent"
+                              : "Premium Crystal Acrylic (A6)"}
+                          </span>{" "}
+                          • <span className="font-bold text-white">{ord.quantity} Unit(s)</span> (₹{ord.totalPrice})
+                        </div>
+
+                        <div className="flex items-start gap-1.5 text-slate-400">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Deliver to:</strong> {ord.contactName} ({ord.contactPhone})<br />
+                            {ord.shippingAddress}, {ord.city} {ord.postalCode}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status & Fulfillment Controls */}
+                    <div className="flex flex-col gap-2 shrink-0 md:w-52">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400 font-semibold">Status:</span>
+                        <select
+                          value={ord.status}
+                          onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
+                          className={`text-xs px-2.5 py-1.5 rounded-xl border font-bold focus:outline-none ${
+                            ord.status === "DELIVERED"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              : ord.status === "SHIPPED"
+                              ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                          }`}
+                        >
+                          <option value="PENDING" className="bg-slate-900 text-white">Pending</option>
+                          <option value="PROCESSING" className="bg-slate-900 text-white">Processing</option>
+                          <option value="SHIPPED" className="bg-slate-900 text-white">Shipped</option>
+                          <option value="DELIVERED" className="bg-slate-900 text-white">Delivered</option>
+                          <option value="CANCELLED" className="bg-slate-900 text-white">Cancelled</option>
+                        </select>
+                      </div>
+
+                      <a
+                        href={`https://wa.me/${ord.contactPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hi ${ord.contactName}, this is Unbox Studio regarding your QR Standee Order #${ord.id.slice(-8).toUpperCase()} for ${ord.business?.name}.`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-1.5 px-3 bg-slate-900 hover:bg-slate-950 text-slate-300 hover:text-white rounded-xl text-xs font-semibold text-center border border-slate-700 transition-colors"
+                      >
+                        Contact on WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

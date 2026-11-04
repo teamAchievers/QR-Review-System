@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getPortalUrl } from '../config';
 import { 
   Star, 
   ShieldAlert, 
@@ -21,6 +22,7 @@ interface FunnelSimulatorProps {
 }
 
 export const FunnelSimulator: React.FC<FunnelSimulatorProps> = ({ onOpenSubscribe }) => {
+  const portalUrl = getPortalUrl();
   const [activeVenue, setActiveVenue] = useState<'dental' | 'pizza'>('dental');
   const [selectedStars, setSelectedStars] = useState<number>(5);
   const [hoveredStars, setHoveredStars] = useState<number | null>(null);
@@ -241,7 +243,7 @@ export const FunnelSimulator: React.FC<FunnelSimulatorProps> = ({ onOpenSubscrib
                   <p className="text-xs text-cyan-300 font-mono">/r/{current.slug}</p>
                 </div>
                 <a
-                  href={`http://localhost:3000/r/${current.slug}`}
+                  href={`${portalUrl}/r/${current.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1 transition-colors"

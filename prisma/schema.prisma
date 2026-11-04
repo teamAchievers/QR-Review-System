@@ -56,6 +56,26 @@ model Business {
   users           User[]
   feedbacks       Feedback[]
   scanLogs        ScanLog[]
+  standeeOrders   StandeeOrder[]
+}
+
+model StandeeOrder {
+  id              String    @id @default(cuid())
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contactName     String
+  contactPhone    String
+  shippingAddress String
+  city            String?
+  postalCode      String?
+  standeeType     String    @default("ACRYLIC_A6") // "ACRYLIC_A6", "WOODEN_A5", "METAL_TENT"
+  quantity        Int       @default(1)
+  totalPrice      Float     @default(499)
+  status          String    @default("PENDING") // "PENDING", "PROCESSING", "SHIPPED", "DELIVERED"
+  trackingNumber  String?
+  courierNotes    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Feedback {
