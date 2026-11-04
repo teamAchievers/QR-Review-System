@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  password     String
+  role         String    @default("BUSINESS_ADMIN") // "SUPER_ADMIN" or "BUSINESS_ADMIN"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  businessId   String?
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+}
+
+model Business {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  tagline         String?
+  logoUrl         String?
+  primaryColor    String      @default("#2563eb")
+  googlePlaceId   String?
+  googleReviewUrl String      @default("")
+  phone           String?
+  email           String?
+  address         String?
+  city            String?
+  category        String?     // e.g., Restaurant, Dental, Salon, etc.
+  keywords        String      @default("friendly staff, great quality, excellent service, highly recommended")
+  targetTone      String      @default("enthusiastic, authentic, and detailed")
+  minGoogleStar   Int         @default(4)
+  status          String      @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+  
+  // Subscription & Billing Lifecyle
+  subscriptionStatus String   @default("ACTIVE") // "ACTIVE", "DUE", "SUSPENDED", "TRIAL"
+  planTier           String   @default("GROWTH") // "STARTER", "GROWTH", "PRO", "ENTERPRISE"
+  billingCycle       String   @default("MONTHLY") // "MONTHLY", "ANNUAL"
+  planPrice          Float    @default(49.0)
+  currentPeriodEnd   DateTime?
+  trialEndsAt        DateTime?
+  lastPaymentDate    DateTime?
+  billingNotes       String?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  users           User[]
+  feedbacks       Feedback[]
+  scanLogs        ScanLog[]
+}
+
+model Feedback {
+  id              String    @id @default(cuid())
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rating          Int
+  comment         String
+  customerName    String?
+  customerContact String?
+  status          String    @default("NEW") // "NEW", "IN_PROGRESS", "RESOLVED"
+  internalNotes   String?
+  createdAt       DateTime  @default(now())
+}
+
+model ScanLog {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rating      Int?
+  action      String    // "QR_SCANNED", "LOW_RATING_SUBMITTED", "HIGH_RATING_SUBMITTED", "COPIED_TO_GOOGLE"
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
