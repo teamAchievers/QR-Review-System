@@ -49,6 +49,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       keywords,
       targetTone,
       minGoogleStar,
+      poweredByText,
+      poweredByUrl,
       adminUserId,
       adminName,
       adminEmail,
@@ -121,6 +123,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         ...(keywords !== undefined && { keywords: keywords.trim() }),
         ...(targetTone !== undefined && { targetTone: targetTone.trim() }),
         ...(minGoogleStar !== undefined && { minGoogleStar: Number(minGoogleStar) }),
+        ...(poweredByText !== undefined && { poweredByText: poweredByText?.trim() || "Unbox Studio" }),
+        ...(poweredByUrl !== undefined && { poweredByUrl: poweredByUrl?.trim() || "https://unboxstudio.com" }),
         ...subscriptionUpdates,
       },
     });

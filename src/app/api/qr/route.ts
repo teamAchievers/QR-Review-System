@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
         name: true,
         logoUrl: true,
         primaryColor: true,
+        poweredByText: true,
       },
     });
 
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
     const initial = businessName.charAt(0).toUpperCase() || "B";
     const brandColor = business?.primaryColor || "#2563eb";
     const logoUrl = business?.logoUrl || null;
+    const poweredBy = business?.poweredByText?.trim() || "Unbox Studio";
 
     // Determine the base URL
     const host = req.headers.get("host") || "localhost:3000";
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest) {
   <g transform="translate(250, 510)">
     <rect x="-115" y="-18" width="230" height="32" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
     <text x="0" y="2" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" fill="#64748b">
-      Powered by <tspan font-weight="800" fill="#0f172a">Unbox Studio</tspan>
+      Powered by <tspan font-weight="800" fill="#0f172a">${poweredBy}</tspan>
     </text>
   </g>
 </svg>`.trim();

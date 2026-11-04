@@ -56,6 +56,8 @@ export async function PUT(req: NextRequest) {
       targetTone,
       minGoogleStar,
       primaryColor,
+      poweredByText,
+      poweredByUrl,
     } = await req.json();
 
     const updated = await db.business.update({
@@ -74,6 +76,8 @@ export async function PUT(req: NextRequest) {
         ...(targetTone !== undefined && { targetTone: targetTone.trim() }),
         ...(minGoogleStar !== undefined && { minGoogleStar: Number(minGoogleStar) }),
         ...(primaryColor !== undefined && { primaryColor }),
+        ...(poweredByText !== undefined && { poweredByText: poweredByText?.trim() || "Unbox Studio" }),
+        ...(poweredByUrl !== undefined && { poweredByUrl: poweredByUrl?.trim() || "https://unboxstudio.com" }),
       },
     });
 

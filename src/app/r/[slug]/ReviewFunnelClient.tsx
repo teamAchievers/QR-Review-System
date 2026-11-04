@@ -18,6 +18,8 @@ interface BusinessData {
   keywords: string;
   subscriptionStatus?: string;
   isSuspended?: boolean;
+  poweredByText?: string | null;
+  poweredByUrl?: string | null;
 }
 
 export default function ReviewFunnelClient({ business }: { business: BusinessData }) {
@@ -223,7 +225,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
         </div>
 
         <div className="text-center mt-6 text-xs text-slate-400">
-          Powered by <strong className="text-slate-600">Unbox Studio</strong> • Reputation &amp; Local SEO System
+          Powered by <a href={business.poweredByUrl || "https://unboxstudio.com"} target="_blank" rel="noopener noreferrer" className="font-bold text-slate-600 hover:text-blue-600 transition-colors">{business.poweredByText || "Unbox Studio"}</a> • Reputation &amp; Local SEO System
         </div>
       </div>
     );
@@ -557,7 +559,7 @@ export default function ReviewFunnelClient({ business }: { business: BusinessDat
 
         {/* Footer */}
         <div className="text-center mt-6 text-xs text-slate-400">
-          Powered by <strong className="text-slate-600">Unbox Studio</strong> • Reputation &amp; Local SEO System
+          Powered by <a href={business.poweredByUrl || "https://unboxstudio.com"} target="_blank" rel="noopener noreferrer" className="font-bold text-slate-600 hover:text-blue-600 transition-colors">{business.poweredByText || "Unbox Studio"}</a> • Reputation &amp; Local SEO System
         </div>
       </div>
 

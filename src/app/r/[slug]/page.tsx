@@ -28,6 +28,8 @@ export default async function ReviewPage({ params }: Props) {
       currentPeriodEnd: true,
       planPrice: true,
       planTier: true,
+      poweredByText: true,
+      poweredByUrl: true,
     },
   });
 

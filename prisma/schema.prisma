@@ -39,6 +39,10 @@ model Business {
   targetTone      String      @default("enthusiastic, authentic, and detailed")
   minGoogleStar   Int         @default(4)
   status          String      @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+
+  // Agency / White Label Branding
+  poweredByText   String?     @default("Unbox Studio")
+  poweredByUrl    String?     @default("https://unboxstudio.com")
   
   // Subscription & Billing Lifecyle
   subscriptionStatus String   @default("ACTIVE") // "ACTIVE", "DUE", "SUSPENDED", "TRIAL"

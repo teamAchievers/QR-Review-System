@@ -22,6 +22,7 @@ import {
   Save,
   CreditCard,
   AlertCircle,
+  HelpCircle,
   AlertOctagon,
   Lock,
   Tag,
@@ -54,6 +55,8 @@ interface BusinessProfile {
   planPrice: number;
   currentPeriodEnd: string | null;
   lastPaymentDate: string | null;
+  poweredByText?: string | null;
+  poweredByUrl?: string | null;
 }
 
 interface SubscriptionState {
@@ -120,6 +123,7 @@ export default function BusinessDashboardPage() {
 
   // Settings form state
   const [savingSettings, setSavingSettings] = useState(false);
+  const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -134,6 +138,8 @@ export default function BusinessDashboardPage() {
     keywords: "",
     targetTone: "",
     minGoogleStar: 4,
+    poweredByText: "Unbox Studio",
+    poweredByUrl: "https://unboxstudio.com",
   });
 
   // Load Razorpay Checkout Script on mount
@@ -168,6 +174,8 @@ export default function BusinessDashboardPage() {
           googlePlaceId: data.business.googlePlaceId || "",
           keywords: data.business.keywords || "",
           targetTone: data.business.targetTone || "",
+          poweredByText: data.business.poweredByText || "Unbox Studio",
+          poweredByUrl: data.business.poweredByUrl || "https://unboxstudio.com",
           minGoogleStar: data.business.minGoogleStar || 4,
         });
 
@@ -568,7 +576,7 @@ export default function BusinessDashboardPage() {
               <span class="pill">⚡ Quick 15-second feedback</span>
             </div>
             <div class="brand-footer">
-              Powered by <strong>Unbox Studio</strong>
+              Powered by <strong>{business?.poweredByText || "Unbox Studio"}</strong>
             </div>
           </div>
         </body>
@@ -834,7 +842,7 @@ export default function BusinessDashboardPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mb-5">
-                  Includes your logo in the center and &quot;Powered by Unbox Studio&quot; at the bottom.
+                  Includes your logo in the center and &quot;Powered by {business?.poweredByText || "Unbox Studio"}&quot; at the bottom.
                 </p>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col items-center justify-center mb-5">
@@ -950,7 +958,7 @@ export default function BusinessDashboardPage() {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
-                    Powered by <strong className="text-slate-600">Unbox Studio</strong>
+                    Powered by <strong className="text-slate-600">{business?.poweredByText || "Unbox Studio"}</strong>
                   </div>
                 </div>
               </div>
@@ -1139,17 +1147,82 @@ export default function BusinessDashboardPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  Google Review Direct Link (URL) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.googleReviewUrl}
-                  onChange={(e) => setFormData({ ...formData, googleReviewUrl: e.target.value })}
-                  placeholder="https://search.google.com/local/writereview?placeid=..."
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs sm:text-sm">
+                    <span>Google Review Direct Link (URL)</span>
+                    <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleHelp(!showGoogleHelp)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>{showGoogleHelp ? "Hide instructions" : "How to get this link?"}</span>
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={formData.googleReviewUrl}
+                    onChange={(e) => setFormData({ ...formData, googleReviewUrl: e.target.value })}
+                    placeholder="https://g.page/r/.../review or https://search.google.com/local/writereview?placeid=..."
+                    className="flex-1 text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                  {formData.googleReviewUrl && (
+                    <a
+                      href={formData.googleReviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 flex items-center gap-1 shrink-0 transition-colors"
+                      title="Open in new tab to verify review box opens"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Test Link</span>
+                    </a>
+                  )}
+                </div>
+
+                {/* Step-by-Step Instructions Card */}
+                {showGoogleHelp && (
+                  <div className="mt-3 p-4 bg-gradient-to-br from-blue-50 to-indigo-50/60 border border-blue-200 rounded-2xl text-xs text-slate-700 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      <span>How to get your Official Google Review Direct Link:</span>
+                    </div>
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-600 ml-1">
+                      <li>
+                        Open <strong>Google Search</strong> or <strong>Google Maps</strong> and search your business name.
+                      </li>
+                      <li>
+                        Ensure you are logged in with the Google account that manages your <strong>Google Business Profile</strong>.
+                      </li>
+                      <li>
+                        In your business dashboard on Google, click the <strong>&quot;Ask for reviews&quot;</strong> button (or &quot;Get more reviews&quot;).
+                      </li>
+                      <li>
+                        A popup will appear displaying your official review link (format: <code className="bg-white px-1.5 py-0.5 rounded text-blue-700 border border-blue-200">https://g.page/r/.../review</code>).
+                      </li>
+                      <li>
+                        Click <strong>&quot;Copy link&quot;</strong> and paste it into the field above!
+                      </li>
+                    </ol>
+                    <div className="pt-2 border-t border-blue-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                      <span>Alternative: Use your Google Place ID to build a direct URL.</span>
+                      <a
+                        href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline font-semibold flex items-center gap-0.5"
+                      >
+                        <span>Place ID Finder</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1215,6 +1288,40 @@ export default function BusinessDashboardPage() {
                     </span>
                   ))}
                 </div>
+              </div>
+
+                            {/* Platform Branding & Powered By Info */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Platform Branding &amp; &quot;Powered by&quot; Badge</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 font-bold rounded-full">
+                    Active Branding
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">
+                  This badge is displayed at the bottom of your QR code standees and public review funnel page.
+                </p>
+                <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl text-xs">
+                  <div>
+                    <span className="text-slate-500">Current Badge:</span>{" "}
+                    <strong className="text-slate-800">Powered by {business?.poweredByText || "Unbox Studio"}</strong>
+                  </div>
+                  <a
+                    href={business?.poweredByUrl || "https://unboxstudio.com"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline font-semibold flex items-center gap-1 text-[11px]"
+                  >
+                    <span>{business?.poweredByUrl || "https://unboxstudio.com"}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 italic">
+                  Note: Custom white-label branding can be updated via your Master Admin panel.
+                </p>
               </div>
 
               <div className="pt-4 flex justify-end">

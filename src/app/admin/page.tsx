@@ -17,6 +17,7 @@ import {
   Trash2,
   RefreshCw,
   Sparkles,
+  HelpCircle,
   Edit2,
   CreditCard,
   DollarSign,
@@ -50,6 +51,8 @@ interface BusinessWithUser {
   keywords: string;
   targetTone: string;
   minGoogleStar: number;
+  poweredByText?: string | null;
+  poweredByUrl?: string | null;
   // Subscription fields
   subscriptionStatus: string; // ACTIVE, DUE, SUSPENDED, TRIAL
   planTier: string; // STARTER, GROWTH, PRO, ENTERPRISE
@@ -477,6 +480,58 @@ export default function MasterAdminPage() {
     }
   };
 
+  const [showGoogleHelpEdit, setShowGoogleHelpEdit] = useState(false);
+  const [showGoogleHelpCreate, setShowGoogleHelpCreate] = useState(false);
+  const [brandingModalOpen, setBrandingModalOpen] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [globalBranding, setGlobalBranding] = useState({
+    poweredByText: "Unbox Studio",
+    poweredByUrl: "https://unboxstudio.com",
+    applyToAllBusinesses: false,
+  });
+
+  const fetchGlobalBranding = async () => {
+    try {
+      const res = await fetch("/api/admin/settings");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setGlobalBranding((prev) => ({
+            ...prev,
+            poweredByText: data.settings.poweredByText || "Unbox Studio",
+            poweredByUrl: data.settings.poweredByUrl || "https://unboxstudio.com",
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching global branding:", err);
+    }
+  };
+
+  const handleSaveGlobalBranding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBranding(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(globalBranding),
+      });
+      if (res.ok) {
+        setSuccessMsg("Platform 'Powered by' branding updated successfully!");
+        setBrandingModalOpen(false);
+        fetchStats();
+      } else {
+        alert("Failed to update branding settings");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving branding settings");
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
   // Create Business Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -501,6 +556,8 @@ export default function MasterAdminPage() {
     keywords: "",
     targetTone: "",
     minGoogleStar: 4,
+    poweredByText: "Unbox Studio",
+    poweredByUrl: "https://unboxstudio.com",
     // Subscription
     subscriptionStatus: "ACTIVE",
     planTier: "GROWTH",
@@ -527,6 +584,8 @@ export default function MasterAdminPage() {
     googlePlaceId: "",
     keywords: "friendly staff, excellent service, high quality, highly recommended",
     targetTone: "enthusiastic and authentic",
+    poweredByText: "Unbox Studio",
+    poweredByUrl: "https://unboxstudio.com",
     subscriptionStatus: "ACTIVE",
     planTier: "GROWTH",
     billingCycle: "MONTHLY",
@@ -557,6 +616,7 @@ export default function MasterAdminPage() {
     fetchPlans();
     fetchCoupons();
     fetchOffers();
+    fetchGlobalBranding();
   }, [fetchStats]);
 
   const handleLogout = async () => {
@@ -605,6 +665,8 @@ export default function MasterAdminPage() {
           googlePlaceId: "",
           keywords: "friendly staff, excellent service, high quality, highly recommended",
           targetTone: "enthusiastic and authentic",
+          poweredByText: "Unbox Studio",
+          poweredByUrl: "https://unboxstudio.com",
           subscriptionStatus: "ACTIVE",
           planTier: "GROWTH",
           billingCycle: "MONTHLY",
@@ -641,6 +703,8 @@ export default function MasterAdminPage() {
       keywords: b.keywords || "",
       targetTone: b.targetTone || "enthusiastic and authentic",
       minGoogleStar: b.minGoogleStar || 4,
+      poweredByText: b.poweredByText || "Unbox Studio",
+      poweredByUrl: b.poweredByUrl || "https://unboxstudio.com",
       // Subscription
       subscriptionStatus: b.subscriptionStatus || "ACTIVE",
       planTier: b.planTier || "GROWTH",
@@ -787,6 +851,17 @@ export default function MasterAdminPage() {
             )}
           </button>
 
+          <button
+            onClick={() => {
+              fetchGlobalBranding();
+              setBrandingModalOpen(true);
+            }}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+            title="Edit default 'Powered by' white-label footer and links across the platform"
+          >
+            <Sparkles className="w-4 h-4 text-blue-400" />
+            <span>&quot;Powered by&quot; Branding</span>
+          </button>
           <button
             onClick={() => setCreateModalOpen(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md transition-all flex items-center gap-1.5"
@@ -1717,13 +1792,54 @@ export default function MasterAdminPage() {
                 </h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Google Review URL</label>
-                    <input
-                      type="text"
-                      value={editFormData.googleReviewUrl}
-                      onChange={(e) => setEditFormData({ ...editFormData, googleReviewUrl: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-300">Google Review Direct Link (URL)</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowGoogleHelpEdit(!showGoogleHelpEdit)}
+                        className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                        <span>{showGoogleHelpEdit ? "Hide instructions" : "How to get this link?"}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editFormData.googleReviewUrl}
+                        onChange={(e) => setEditFormData({ ...editFormData, googleReviewUrl: e.target.value })}
+                        placeholder="https://g.page/r/.../review or https://search.google.com/local/writereview?placeid=..."
+                        className="flex-1 text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      />
+                      {editFormData.googleReviewUrl && (
+                        <a
+                          href={editFormData.googleReviewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold hover:bg-blue-600/30 flex items-center gap-1 shrink-0"
+                          title="Open review dialog in new tab"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Test</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {showGoogleHelpEdit && (
+                      <div className="mt-2.5 p-3.5 bg-slate-900/90 border border-blue-500/30 rounded-xl text-xs text-slate-300 space-y-2 animate-in fade-in duration-150">
+                        <div className="font-bold text-blue-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>How to get Google Review Direct Short Link:</span>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
+                          <li>Search the business name on Google Maps or Google Search.</li>
+                          <li>Ensure you are logged into the account managing the Google Business Profile.</li>
+                          <li>Click the <strong>&quot;Ask for reviews&quot;</strong> button in the manager view.</li>
+                          <li>Copy the direct short link (e.g. <code className="text-blue-300 bg-slate-800 px-1 py-0.5 rounded">https://g.page/r/.../review</code>) and paste it here!</li>
+                        </ol>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -1738,7 +1854,49 @@ export default function MasterAdminPage() {
                 </div>
               </div>
 
-              {/* 4. Client Admin User */}
+              {/* 4. Agency White-Label Branding */}
+              <div className="pt-2 border-t border-slate-700/60">
+                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>4. Agency &amp; White-Label &quot;Powered by&quot; Branding</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      &quot;Powered by&quot; Text Label
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Unbox Studio"
+                      value={editFormData.poweredByText}
+                      onChange={(e) => setEditFormData({ ...editFormData, poweredByText: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      &quot;Powered by&quot; Destination URL
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://unboxstudio.com"
+                      value={editFormData.poweredByUrl}
+                      onChange={(e) => setEditFormData({ ...editFormData, poweredByUrl: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-900/60 border border-slate-700/60 rounded-xl flex items-center justify-between text-xs text-slate-400">
+                  <span>Client Footer Preview:</span>
+                  <div className="text-slate-300">
+                    Powered by <strong className="text-white">{editFormData.poweredByText || "Unbox Studio"}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. Client Admin User */}
               <div className="pt-2 border-t border-slate-700/60">
                 <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">
                   4. Client Login &amp; Password
@@ -1940,6 +2098,89 @@ export default function MasterAdminPage() {
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Google Reviews & Agency Branding */}
+              <div className="pt-2 border-t border-slate-700/60">
+                <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">
+                  Google Review Link &amp; Agency Branding
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-300">Google Review Direct Link (URL)</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowGoogleHelpCreate(!showGoogleHelpCreate)}
+                        className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                        <span>{showGoogleHelpCreate ? "Hide instructions" : "How to get this link?"}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.googleReviewUrl}
+                        onChange={(e) => setFormData({ ...formData, googleReviewUrl: e.target.value })}
+                        placeholder="https://g.page/r/.../review or https://search.google.com/local/writereview?placeid=..."
+                        className="flex-1 text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      />
+                      {formData.googleReviewUrl && (
+                        <a
+                          href={formData.googleReviewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold hover:bg-blue-600/30 flex items-center gap-1 shrink-0"
+                          title="Test Google review link"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Test</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {showGoogleHelpCreate && (
+                      <div className="mt-2.5 p-3.5 bg-slate-900/90 border border-blue-500/30 rounded-xl text-xs text-slate-300 space-y-2 animate-in fade-in duration-150">
+                        <div className="font-bold text-blue-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>How to get Google Review Direct Short Link:</span>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
+                          <li>Search the business name on Google Maps or Google Search.</li>
+                          <li>Click the <strong>&quot;Ask for reviews&quot;</strong> button in the manager widget.</li>
+                          <li>Copy the direct short link (e.g. <code className="text-blue-300 bg-slate-800 px-1 py-0.5 rounded">https://g.page/r/.../review</code>) and paste it here!</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        &quot;Powered by&quot; Label
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.poweredByText}
+                        onChange={(e) => setFormData({ ...formData, poweredByText: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        &quot;Powered by&quot; URL
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.poweredByUrl}
+                        onChange={(e) => setFormData({ ...formData, poweredByUrl: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2609,6 +2850,109 @@ export default function MasterAdminPage() {
           </div>
         </div>
       )}
+      {/* ================= GLOBAL "POWERED BY" BRANDING MODAL ================= */}
+      {brandingModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <span>Platform &quot;Powered by&quot; Branding</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Configure white-label agency branding shown on QR standees and customer review funnels.
+                </p>
+              </div>
+              <button onClick={() => setBrandingModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGlobalBranding} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Default &quot;Powered by&quot; Brand Label <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Unbox Studio or YourAgency Name"
+                  value={globalBranding.poweredByText}
+                  onChange={(e) => setGlobalBranding({ ...globalBranding, poweredByText: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Brand Destination Link (URL) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="https://unboxstudio.com"
+                  value={globalBranding.poweredByUrl}
+                  onChange={(e) => setGlobalBranding({ ...globalBranding, poweredByUrl: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                />
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-4 bg-slate-900/80 border border-slate-700 rounded-2xl space-y-2">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Live Footer Badge Preview:
+                </span>
+                <div className="p-3 bg-white text-slate-900 rounded-xl flex items-center justify-between text-xs shadow-xs">
+                  <div>
+                    <span className="text-slate-500">Customer Funnel:</span>{" "}
+                    Powered by <strong className="text-blue-600">{globalBranding.poweredByText || "Unbox Studio"}</strong>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {globalBranding.poweredByUrl || "https://unboxstudio.com"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={globalBranding.applyToAllBusinesses}
+                    onChange={(e) => setGlobalBranding({ ...globalBranding, applyToAllBusinesses: e.target.checked })}
+                    className="mt-0.5 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                  />
+                  <span>
+                    <strong>Apply to all existing client businesses</strong> (overwrites previous tenant branding)
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setBrandingModalOpen(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBranding}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5"
+                >
+                  {savingBranding ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    "Save Platform Branding"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
