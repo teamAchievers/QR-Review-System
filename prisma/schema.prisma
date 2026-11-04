@@ -107,3 +107,51 @@ model SystemSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+model Plan {
+  id           String   @id @default(cuid())
+  code         String   @unique // "STARTER", "GROWTH", "PRO", "ENTERPRISE", or custom
+  name         String   // "Starter Launch", "Growth Pro", "Enterprise Elite"
+  description  String?  // "Perfect for single location clinics & cafes"
+  monthlyPrice Float    @default(999)
+  annualPrice  Float    @default(9999)
+  currency     String   @default("INR")
+  features     String   // Newline or comma separated feature list
+  isPopular    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique // e.g. "UNBOX50"
+  description   String?   // "50% off for first 3 months"
+  discountType  String    @default("PERCENTAGE") // "PERCENTAGE" or "FLAT"
+  discountValue Float     // 50 (%) or 500 (INR)
+  minOrderValue Float     @default(0)
+  maxUses       Int?      // null for unlimited
+  usedCount     Int       @default(0)
+  validFrom     DateTime  @default(now())
+  validUntil    DateTime? // expiration
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Offer {
+  id             String    @id @default(cuid())
+  title          String    // "Diwali Festive Launch Offer"
+  subtitle       String?   // "Get a Free Custom Acrylic Standee + 30% Off on Annual Plan"
+  badgeText      String?   // "LIMITED TIME", "POPULAR", "FESTIVE"
+  bannerColor    String    @default("#2563eb") // Hex color for banner
+  couponCode     String?   // Linked coupon code e.g. "FESTIVE30"
+  targetAudience String    @default("ALL") // "ALL", "ACTIVE", "DUE", "NEW"
+  ctaText        String    @default("Claim Offer")
+  ctaLink        String?   // e.g. "/dashboard?tab=billing"
+  validUntil     DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}

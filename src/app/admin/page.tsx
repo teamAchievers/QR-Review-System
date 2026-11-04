@@ -25,6 +25,12 @@ import {
   Package,
   Truck,
   MapPin,
+  Tag,
+  Percent,
+  Megaphone,
+  Calendar,
+  Layers,
+  Eye,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 
@@ -58,6 +64,48 @@ interface BusinessWithUser {
     feedbacks: number;
     scanLogs: number;
   };
+}
+
+interface PlanItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  monthlyPrice: number;
+  annualPrice: number;
+  currency: string;
+  features: string;
+  isPopular: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface CouponItem {
+  id: string;
+  code: string;
+  description: string | null;
+  discountType: string;
+  discountValue: number;
+  minOrderValue: number;
+  maxUses: number | null;
+  usedCount: number;
+  validFrom: string;
+  validUntil: string | null;
+  isActive: boolean;
+}
+
+interface OfferItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  badgeText: string | null;
+  bannerColor: string;
+  couponCode: string | null;
+  targetAudience: string;
+  ctaText: string;
+  ctaLink: string | null;
+  validUntil: string | null;
+  isActive: boolean;
 }
 
 export default function MasterAdminPage() {
@@ -106,6 +154,324 @@ export default function MasterAdminPage() {
         body: JSON.stringify({ orderId, status, trackingNumber }),
       });
       fetchStandeeOrders();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Admin Navigation Tab State
+  const [adminTab, setAdminTab] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS">("BUSINESSES");
+
+  // Plans Management State
+  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
+  const [planForm, setPlanForm] = useState({
+    code: "",
+    name: "",
+    description: "",
+    monthlyPrice: 999,
+    annualPrice: 9999,
+    currency: "INR",
+    features: "",
+    isPopular: false,
+    isActive: true,
+    sortOrder: 0,
+  });
+
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    try {
+      const res = await fetch("/api/admin/plans");
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data.plans || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  const handleOpenCreatePlan = () => {
+    setEditingPlan(null);
+    setPlanForm({
+      code: "",
+      name: "",
+      description: "",
+      monthlyPrice: 999,
+      annualPrice: 9999,
+      currency: "INR",
+      features: "1 Branded Center-Logo QR Code\nUnlimited Customer Scans\nPrivate Negative Feedback Shield\nBasic Keyword Weaving",
+      isPopular: false,
+      isActive: true,
+      sortOrder: plans.length + 1,
+    });
+    setPlanModalOpen(true);
+  };
+
+  const handleOpenEditPlan = (plan: PlanItem) => {
+    setEditingPlan(plan);
+    setPlanForm({
+      code: plan.code,
+      name: plan.name,
+      description: plan.description || "",
+      monthlyPrice: plan.monthlyPrice,
+      annualPrice: plan.annualPrice,
+      currency: plan.currency,
+      features: plan.features,
+      isPopular: plan.isPopular,
+      isActive: plan.isActive,
+      sortOrder: plan.sortOrder,
+    });
+    setPlanModalOpen(true);
+  };
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = "/api/admin/plans";
+      const method = editingPlan ? "PUT" : "POST";
+      const body = editingPlan ? { ...planForm, id: editingPlan.id } : planForm;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        setPlanModalOpen(false);
+        setSuccessMsg(editingPlan ? "Plan updated successfully!" : "Plan created successfully!");
+        fetchPlans();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to save plan");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving plan");
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this subscription plan?")) return;
+    try {
+      const res = await fetch(`/api/admin/plans?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuccessMsg("Plan deleted successfully");
+        fetchPlans();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Coupons Management State
+  const [coupons, setCoupons] = useState<CouponItem[]>([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+  const [couponModalOpen, setCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<CouponItem | null>(null);
+  const [couponForm, setCouponForm] = useState({
+    code: "",
+    description: "",
+    discountType: "PERCENTAGE",
+    discountValue: 20,
+    minOrderValue: 0,
+    maxUses: 100 as number | null,
+    validUntil: "",
+    isActive: true,
+  });
+
+  const fetchCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const res = await fetch("/api/admin/coupons");
+      if (res.ok) {
+        const data = await res.json();
+        setCoupons(data.coupons || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const handleOpenCreateCoupon = () => {
+    setEditingCoupon(null);
+    setCouponForm({
+      code: "",
+      description: "",
+      discountType: "PERCENTAGE",
+      discountValue: 20,
+      minOrderValue: 0,
+      maxUses: 100,
+      validUntil: "",
+      isActive: true,
+    });
+    setCouponModalOpen(true);
+  };
+
+  const handleOpenEditCoupon = (c: CouponItem) => {
+    setEditingCoupon(c);
+    setCouponForm({
+      code: c.code,
+      description: c.description || "",
+      discountType: c.discountType,
+      discountValue: c.discountValue,
+      minOrderValue: c.minOrderValue,
+      maxUses: c.maxUses,
+      validUntil: c.validUntil ? new Date(c.validUntil).toISOString().split("T")[0] : "",
+      isActive: c.isActive,
+    });
+    setCouponModalOpen(true);
+  };
+
+  const handleSaveCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = "/api/admin/coupons";
+      const method = editingCoupon ? "PUT" : "POST";
+      const body = editingCoupon ? { ...couponForm, id: editingCoupon.id } : couponForm;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        setCouponModalOpen(false);
+        setSuccessMsg(editingCoupon ? "Coupon updated successfully!" : "Coupon created successfully!");
+        fetchCoupons();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to save coupon");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving coupon");
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this coupon code?")) return;
+    try {
+      const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuccessMsg("Coupon deleted");
+        fetchCoupons();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Offers Management State
+  const [offers, setOffers] = useState<OfferItem[]>([]);
+  const [loadingOffers, setLoadingOffers] = useState(false);
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<OfferItem | null>(null);
+  const [offerForm, setOfferForm] = useState({
+    title: "",
+    subtitle: "",
+    badgeText: "LIMITED TIME",
+    bannerColor: "#2563eb",
+    couponCode: "",
+    targetAudience: "ALL",
+    ctaText: "Claim Offer",
+    ctaLink: "/dashboard?tab=billing",
+    validUntil: "",
+    isActive: true,
+  });
+
+  const fetchOffers = async () => {
+    setLoadingOffers(true);
+    try {
+      const res = await fetch("/api/admin/offers");
+      if (res.ok) {
+        const data = await res.json();
+        setOffers(data.offers || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingOffers(false);
+    }
+  };
+
+  const handleOpenCreateOffer = () => {
+    setEditingOffer(null);
+    setOfferForm({
+      title: "",
+      subtitle: "",
+      badgeText: "LIMITED TIME",
+      bannerColor: "#2563eb",
+      couponCode: "",
+      targetAudience: "ALL",
+      ctaText: "Claim Offer",
+      ctaLink: "/dashboard?tab=billing",
+      validUntil: "",
+      isActive: true,
+    });
+    setOfferModalOpen(true);
+  };
+
+  const handleOpenEditOffer = (o: OfferItem) => {
+    setEditingOffer(o);
+    setOfferForm({
+      title: o.title,
+      subtitle: o.subtitle || "",
+      badgeText: o.badgeText || "LIMITED TIME",
+      bannerColor: o.bannerColor || "#2563eb",
+      couponCode: o.couponCode || "",
+      targetAudience: o.targetAudience,
+      ctaText: o.ctaText,
+      ctaLink: o.ctaLink || "/dashboard?tab=billing",
+      validUntil: o.validUntil ? new Date(o.validUntil).toISOString().split("T")[0] : "",
+      isActive: o.isActive,
+    });
+    setOfferModalOpen(true);
+  };
+
+  const handleSaveOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = "/api/admin/offers";
+      const method = editingOffer ? "PUT" : "POST";
+      const body = editingOffer ? { ...offerForm, id: editingOffer.id } : offerForm;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        setOfferModalOpen(false);
+        setSuccessMsg(editingOffer ? "Offer updated successfully!" : "Offer created successfully!");
+        fetchOffers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to save offer");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving offer");
+    }
+  };
+
+  const handleDeleteOffer = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this promotional offer?")) return;
+    try {
+      const res = await fetch(`/api/admin/offers?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuccessMsg("Offer deleted");
+        fetchOffers();
+      }
     } catch (err) {
       console.error(err);
     }
@@ -188,6 +554,9 @@ export default function MasterAdminPage() {
   useEffect(() => {
     fetchStats();
     fetchStandeeOrders();
+    fetchPlans();
+    fetchCoupons();
+    fetchOffers();
   }, [fetchStats]);
 
   const handleLogout = async () => {
@@ -435,6 +804,73 @@ export default function MasterAdminPage() {
         </div>
       </header>
 
+      {/* Admin Module Tabs */}
+      <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-x-auto">
+          <div className="flex items-center gap-2">
+            {[
+              { id: "BUSINESSES", label: "Businesses & QR Profiles", icon: Building2, count: businesses.length },
+              { id: "PLANS", label: "Plans & Pricing", icon: Layers, count: plans.length },
+              { id: "COUPONS", label: "Coupon Codes", icon: Tag, count: coupons.length },
+              { id: "OFFERS", label: "Promotions & Offers", icon: Sparkles, count: offers.length },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = adminTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setAdminTab(tab.id as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                      : "bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    isActive ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Action according to active tab */}
+          <div>
+            {adminTab === "PLANS" && (
+              <button
+                onClick={handleOpenCreatePlan}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add New Plan</span>
+              </button>
+            )}
+            {adminTab === "COUPONS" && (
+              <button
+                onClick={handleOpenCreateCoupon}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Coupon</span>
+              </button>
+            )}
+            {adminTab === "OFFERS" && (
+              <button
+                onClick={handleOpenCreateOffer}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Generate Offer</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {successMsg && (
           <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-between">
@@ -488,7 +924,8 @@ export default function MasterAdminPage() {
         </div>
 
         {/* Business Directory & Subscription Filtering */}
-        <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm">
+        {adminTab === "BUSINESSES" && (
+          <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-lg font-bold text-white">Client Subscriptions &amp; QR Profiles</h2>
@@ -681,6 +1118,407 @@ export default function MasterAdminPage() {
             </table>
           </div>
         </div>
+        )}
+
+        {/* ================= PLANS TAB ================= */}
+        {adminTab === "PLANS" && (
+          <div className="space-y-6">
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-blue-400" />
+                  <span>Subscription Plans &amp; Tiers</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Configure dynamic pricing tiers, monthly/annual fees, and feature sets for client onboarding.
+                </p>
+              </div>
+              <button
+                onClick={handleOpenCreatePlan}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 self-start sm:self-auto transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Plan</span>
+              </button>
+            </div>
+
+            {loadingPlans ? (
+              <div className="p-12 text-center text-slate-400">Loading plans...</div>
+            ) : plans.length === 0 ? (
+              <div className="bg-slate-800/50 border border-slate-700/60 rounded-3xl p-12 text-center text-slate-400">
+                <Layers className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-white mb-1">No plans configured yet</h3>
+                <p className="text-xs text-slate-500 mb-4">Click &quot;Add New Plan&quot; to create your first pricing tier.</p>
+                <button
+                  onClick={handleOpenCreatePlan}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold"
+                >
+                  Create Plan
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {plans.map((p) => {
+                  const featureList = p.features
+                    ? p.features.split("\n").filter((f) => f.trim())
+                    : [];
+                  return (
+                    <div
+                      key={p.id}
+                      className={`bg-slate-800/90 border rounded-3xl p-6 relative flex flex-col justify-between transition-all ${
+                        p.isPopular
+                          ? "border-amber-500/50 shadow-lg shadow-amber-500/5 ring-1 ring-amber-500/30"
+                          : "border-slate-700/70"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300">
+                            {p.code}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {p.isPopular && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" />
+                                POPULAR
+                              </span>
+                            )}
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                p.isActive
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                              }`}
+                            >
+                              {p.isActive ? "ACTIVE" : "INACTIVE"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-white mb-1">{p.name}</h3>
+                        {p.description && (
+                          <p className="text-xs text-slate-400 mb-4">{p.description}</p>
+                        )}
+
+                        <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 mb-5">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-black text-white">
+                              {p.currency === "INR" ? "₹" : "$"}
+                              {p.monthlyPrice.toLocaleString()}
+                            </span>
+                            <span className="text-xs text-slate-400">/ month</span>
+                          </div>
+                          <div className="text-[11px] text-emerald-400 font-medium mt-1 flex items-center justify-between">
+                            <span>
+                              Annual: {p.currency === "INR" ? "₹" : "$"}
+                              {p.annualPrice.toLocaleString()} / yr
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
+                              Save ~17%
+                            </span>
+                          </div>
+                        </div>
+
+                        {featureList.length > 0 && (
+                          <div className="space-y-2 mb-6">
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                              Included Features:
+                            </div>
+                            <ul className="space-y-2">
+                              {featureList.map((f, idx) => (
+                                <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                                  <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-700 flex items-center justify-between gap-2 mt-4">
+                        <button
+                          onClick={() => handleOpenEditPlan(p)}
+                          className="flex-1 py-2 bg-slate-700/80 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit Plan</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeletePlan(p.id)}
+                          className="p-2 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-slate-800 transition-colors"
+                          title="Delete Plan"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= COUPONS TAB ================= */}
+        {adminTab === "COUPONS" && (
+          <div className="space-y-6">
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-amber-400" />
+                  <span>Coupon &amp; Promo Codes</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Generate discount voucher codes with percentage or flat deductions, usage caps, and expirations.
+                </p>
+              </div>
+              <button
+                onClick={handleOpenCreateCoupon}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 self-start sm:self-auto transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Coupon Code</span>
+              </button>
+            </div>
+
+            {loadingCoupons ? (
+              <div className="p-12 text-center text-slate-400">Loading coupon codes...</div>
+            ) : coupons.length === 0 ? (
+              <div className="bg-slate-800/50 border border-slate-700/60 rounded-3xl p-12 text-center text-slate-400">
+                <Tag className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-white mb-1">No coupons created yet</h3>
+                <p className="text-xs text-slate-500 mb-4">Click &quot;Create Coupon Code&quot; to offer special discounts to clients.</p>
+                <button
+                  onClick={handleOpenCreateCoupon}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold"
+                >
+                  Create Coupon
+                </button>
+              </div>
+            ) : (
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-slate-700 text-slate-400 font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th className="pb-3 px-3">Coupon Code</th>
+                      <th className="pb-3 px-3">Discount</th>
+                      <th className="pb-3 px-3">Description</th>
+                      <th className="pb-3 px-3">Min Order</th>
+                      <th className="pb-3 px-3">Usage</th>
+                      <th className="pb-3 px-3">Valid Until</th>
+                      <th className="pb-3 px-3">Status</th>
+                      <th className="pb-3 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {coupons.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-750/30 transition-colors">
+                        <td className="py-4 px-3">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(c.code);
+                              setCopiedSlug(c.code);
+                              setTimeout(() => setCopiedSlug(null), 1500);
+                            }}
+                            className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg hover:bg-amber-500/20 flex items-center gap-1.5 transition-colors"
+                            title="Click to copy code"
+                          >
+                            <span>{c.code}</span>
+                            {copiedSlug === c.code ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-amber-400/70" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="py-4 px-3 font-bold text-emerald-400">
+                          {c.discountType === "PERCENTAGE" ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT OFF`}
+                        </td>
+                        <td className="py-4 px-3 text-slate-300 max-w-xs truncate">
+                          {c.description || "-"}
+                        </td>
+                        <td className="py-4 px-3 text-slate-300">
+                          {c.minOrderValue > 0 ? `₹${c.minOrderValue}` : "No min."}
+                        </td>
+                        <td className="py-4 px-3 text-slate-300">
+                          <span className="font-semibold text-white">{c.usedCount}</span>
+                          <span className="text-slate-500"> / {c.maxUses ? c.maxUses : "∞"}</span>
+                        </td>
+                        <td className="py-4 px-3 text-slate-300">
+                          {c.validUntil ? new Date(c.validUntil).toLocaleDateString() : <span className="text-slate-500">Never</span>}
+                        </td>
+                        <td className="py-4 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.isActive
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            }`}
+                          >
+                            {c.isActive ? "ACTIVE" : "INACTIVE"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditCoupon(c)}
+                              className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCoupon(c.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
+                              title="Delete coupon"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= PROMOTIONAL OFFERS TAB ================= */}
+        {adminTab === "OFFERS" && (
+          <div className="space-y-6">
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-indigo-400" />
+                  <span>Promotional Offers &amp; Announcements</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Broadcast interactive banner alerts, seasonal discounts, and upgrade incentives across client dashboards.
+                </p>
+              </div>
+              <button
+                onClick={handleOpenCreateOffer}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center gap-1.5 self-start sm:self-auto transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Generate Offer</span>
+              </button>
+            </div>
+
+            {loadingOffers ? (
+              <div className="p-12 text-center text-slate-400">Loading offers...</div>
+            ) : offers.length === 0 ? (
+              <div className="bg-slate-800/50 border border-slate-700/60 rounded-3xl p-12 text-center text-slate-400">
+                <Megaphone className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-white mb-1">No offers generated yet</h3>
+                <p className="text-xs text-slate-500 mb-4">Click &quot;Generate Offer&quot; to publish a promotional banner to clients.</p>
+                <button
+                  onClick={handleOpenCreateOffer}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold"
+                >
+                  Generate Offer
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {offers.map((o) => (
+                  <div
+                    key={o.id}
+                    className="bg-slate-800/90 border border-slate-700/70 rounded-3xl p-6 shadow-sm space-y-4"
+                  >
+                    {/* Live Banner Preview */}
+                    <div>
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Live Client Banner Preview:</span>
+                      </div>
+                      <div
+                        className="p-4 sm:p-5 rounded-2xl text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all"
+                        style={{ backgroundColor: o.bannerColor || "#2563eb" }}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {o.badgeText && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-black/30 backdrop-blur text-white border border-white/20">
+                                {o.badgeText}
+                              </span>
+                            )}
+                            {o.couponCode && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-400 text-slate-950 flex items-center gap-1">
+                                <Tag className="w-2.5 h-2.5" />
+                                {o.couponCode}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-base font-bold drop-shadow-xs">{o.title}</h4>
+                          {o.subtitle && (
+                            <p className="text-xs text-white/90 drop-shadow-xs">{o.subtitle}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                          <button
+                            type="button"
+                            className="px-4 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold shadow-md hover:bg-slate-100 transition-colors"
+                          >
+                            {o.ctaText}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Metadata & Controls */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-700/60 text-xs">
+                      <div className="flex flex-wrap items-center gap-3 text-slate-300">
+                        <div>
+                          <strong>Audience:</strong>{" "}
+                          <span className="text-blue-300 font-medium">{o.targetAudience}</span>
+                        </div>
+                        <div>
+                          <strong>Expires:</strong>{" "}
+                          <span className="text-slate-400">
+                            {o.validUntil ? new Date(o.validUntil).toLocaleDateString() : "No Expiration"}
+                          </span>
+                        </div>
+                        <div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              o.isActive
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            }`}
+                          >
+                            {o.isActive ? "ACTIVE & LIVE" : "INACTIVE / PAUSED"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleOpenEditOffer(o)}
+                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit Offer</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOffer(o.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-slate-800 transition-colors"
+                          title="Delete offer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* ================= EDIT BUSINESS & SUBSCRIPTION MODAL ================= */}
@@ -1299,6 +2137,475 @@ export default function MasterAdminPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* ================= ADD / EDIT PLAN MODAL ================= */}
+      {planModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-blue-400" />
+                  <span>{editingPlan ? "Edit Subscription Plan" : "Add New Subscription Plan"}</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Configure tier code, pricing, and feature list for client subscriptions
+                </p>
+              </div>
+              <button onClick={() => setPlanModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePlan} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Plan Code <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. STARTER, GROWTH, PRO"
+                    value={planForm.code}
+                    onChange={(e) => setPlanForm({ ...planForm, code: e.target.value.toUpperCase() })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Display Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Growth Pro Tier"
+                    value={planForm.name}
+                    onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Perfect for multi-location clinics & established restaurants"
+                  value={planForm.description}
+                  onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Monthly Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={planForm.monthlyPrice}
+                    onChange={(e) => setPlanForm({ ...planForm, monthlyPrice: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Annual Price (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={planForm.annualPrice}
+                    onChange={(e) => setPlanForm({ ...planForm, annualPrice: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={planForm.sortOrder}
+                    onChange={(e) => setPlanForm({ ...planForm, sortOrder: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Features (1 bullet per line)
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder={"1 Branded Center-Logo QR Code\nUnlimited Customer Scans\nPrivate Negative Feedback Shield\nBasic Keyword Weaving"}
+                  value={planForm.features}
+                  onChange={(e) => setPlanForm({ ...planForm, features: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-6 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={planForm.isPopular}
+                    onChange={(e) => setPlanForm({ ...planForm, isPopular: e.target.checked })}
+                    className="rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span>Mark as &quot;Most Popular&quot;</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={planForm.isActive}
+                    onChange={(e) => setPlanForm({ ...planForm, isActive: e.target.checked })}
+                    className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                  />
+                  <span>Active &amp; Available for Purchase</span>
+                </label>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setPlanModalOpen(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md"
+                >
+                  {editingPlan ? "Update Plan" : "Create Plan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ADD / EDIT COUPON MODAL ================= */}
+      {couponModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-amber-400" />
+                  <span>{editingCoupon ? "Edit Coupon Code" : "Create Coupon Code"}</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Configure discount percentages, usage limits, and expiration dates
+                </p>
+              </div>
+              <button onClick={() => setCouponModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCoupon} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Coupon Code <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. FESTIVE50, WELCOME20"
+                    value={couponForm.code}
+                    onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase() })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Discount Type</label>
+                  <select
+                    value={couponForm.discountType}
+                    onChange={(e) => setCouponForm({ ...couponForm, discountType: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="PERCENTAGE">Percentage (% Off)</option>
+                    <option value="FLAT">Flat Amount (₹ Off)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 50% discount for early bird subscribers"
+                  value={couponForm.description}
+                  onChange={(e) => setCouponForm({ ...couponForm, description: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Discount Value {couponForm.discountType === "PERCENTAGE" ? "(%)" : "(₹)"} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={couponForm.discountType === "PERCENTAGE" ? 100 : 100000}
+                    value={couponForm.discountValue}
+                    onChange={(e) => setCouponForm({ ...couponForm, discountValue: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Min Order Value (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={couponForm.minOrderValue}
+                    onChange={(e) => setCouponForm({ ...couponForm, minOrderValue: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Max Redemptions</label>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Leave blank for unlimited"
+                    value={couponForm.maxUses || ""}
+                    onChange={(e) => setCouponForm({ ...couponForm, maxUses: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Expiry / Valid Until</label>
+                  <input
+                    type="date"
+                    value={couponForm.validUntil}
+                    onChange={(e) => setCouponForm({ ...couponForm, validUntil: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={couponForm.isActive}
+                      onChange={(e) => setCouponForm({ ...couponForm, isActive: e.target.checked })}
+                      className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                    />
+                    <span>Active for checkout</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setCouponModalOpen(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md"
+                >
+                  {editingCoupon ? "Update Coupon" : "Create Coupon"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= GENERATE / EDIT OFFER MODAL ================= */}
+      {offerModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-700 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-indigo-400" />
+                  <span>{editingOffer ? "Edit Promotional Offer" : "Generate Promotional Offer"}</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Publish announcement banners and promotional campaigns to client dashboards
+                </p>
+              </div>
+              <button onClick={() => setOfferModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveOffer} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Offer Headline <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Free Custom Standee with Annual Plan!"
+                  value={offerForm.title}
+                  onChange={(e) => setOfferForm({ ...offerForm, title: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Subtitle / Details</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Upgrade your subscription today and receive a handcrafted wooden QR standee shipped to your doorstep."
+                  value={offerForm.subtitle}
+                  onChange={(e) => setOfferForm({ ...offerForm, subtitle: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Badge Text</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. LIMITED OFFER"
+                    value={offerForm.badgeText}
+                    onChange={(e) => setOfferForm({ ...offerForm, badgeText: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Linked Coupon Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. FREESTANDEE"
+                    value={offerForm.couponCode}
+                    onChange={(e) => setOfferForm({ ...offerForm, couponCode: e.target.value.toUpperCase() })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Banner Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={offerForm.bannerColor}
+                      onChange={(e) => setOfferForm({ ...offerForm, bannerColor: e.target.value })}
+                      className="w-9 h-9 p-0.5 bg-slate-900 border border-slate-700 rounded-xl cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={offerForm.bannerColor}
+                      onChange={(e) => setOfferForm({ ...offerForm, bannerColor: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Target Audience</label>
+                  <select
+                    value={offerForm.targetAudience}
+                    onChange={(e) => setOfferForm({ ...offerForm, targetAudience: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="ALL">All Clients</option>
+                    <option value="NEW">New Signups</option>
+                    <option value="RENEWAL">Renewal Due</option>
+                    <option value="STARTER">Starter Tier Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">CTA Button Text</label>
+                  <input
+                    type="text"
+                    value={offerForm.ctaText}
+                    onChange={(e) => setOfferForm({ ...offerForm, ctaText: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={offerForm.validUntil}
+                    onChange={(e) => setOfferForm({ ...offerForm, validUntil: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Live Preview Inside Modal */}
+              <div className="pt-2">
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Preview in Client Dashboard:
+                </label>
+                <div
+                  className="p-4 rounded-2xl text-white shadow-md flex items-center justify-between gap-4"
+                  style={{ backgroundColor: offerForm.bannerColor || "#2563eb" }}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {offerForm.badgeText && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/30 text-white border border-white/20">
+                          {offerForm.badgeText}
+                        </span>
+                      )}
+                      {offerForm.couponCode && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-400 text-slate-950">
+                          {offerForm.couponCode}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-bold">{offerForm.title || "Offer Title"}</div>
+                    {offerForm.subtitle && <div className="text-xs text-white/90">{offerForm.subtitle}</div>}
+                  </div>
+                  <div className="px-3 py-1.5 bg-white text-slate-900 rounded-xl text-xs font-bold shrink-0">
+                    {offerForm.ctaText || "Claim"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={offerForm.isActive}
+                    onChange={(e) => setOfferForm({ ...offerForm, isActive: e.target.checked })}
+                    className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                  />
+                  <span>Active &amp; Visible to Clients Immediately</span>
+                </label>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setOfferModalOpen(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md"
+                >
+                  {editingOffer ? "Update Offer" : "Publish Offer"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
