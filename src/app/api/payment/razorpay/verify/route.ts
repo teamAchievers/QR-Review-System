@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
 
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    // Query DB system settings first, fallback to process.env
+    const dbKeySecret = await db.systemSetting.findUnique({ where: { key: "payment_key_secret" } });
+    const keySecret = dbKeySecret?.value?.trim() || process.env.RAZORPAY_KEY_SECRET;
 
     // Verify signature if secret and real order provided
     if (keySecret && !isMock && razorpay_signature) {

@@ -33,8 +33,12 @@ export async function POST(req: NextRequest) {
     const amountInCurrency = sub.planPrice || 2999;
     const amountInSubunits = Math.round(amountInCurrency * 100); // 1 INR = 100 paise
 
-    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    // Query DB system settings first, fallback to process.env
+    const dbKeyId = await db.systemSetting.findUnique({ where: { key: "payment_key_id" } });
+    const dbKeySecret = await db.systemSetting.findUnique({ where: { key: "payment_key_secret" } });
+
+    const keyId = dbKeyId?.value?.trim() || process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keySecret = dbKeySecret?.value?.trim() || process.env.RAZORPAY_KEY_SECRET;
 
     // If Razorpay live/test keys are configured, use official SDK
     if (keyId && keySecret) {

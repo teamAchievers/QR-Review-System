@@ -32,6 +32,8 @@ import {
   Calendar,
   Layers,
   Eye,
+  EyeOff,
+  Key,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 
@@ -163,7 +165,97 @@ export default function MasterAdminPage() {
   };
 
   // Admin Navigation Tab State
-  const [adminTab, setAdminTab] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS">("BUSINESSES");
+  const [adminTab, setAdminTab] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS">("BUSINESSES");
+
+  // Payment Gateway Configuration State
+  const [paymentConfig, setPaymentConfig] = useState({
+    provider: "RAZORPAY",
+    enabled: true,
+    mode: "TEST",
+    keyId: "",
+    keySecret: "",
+    webhookSecret: "",
+    currency: "INR",
+    manualUpiId: "",
+    manualBankDetails: "",
+    gracePeriodDays: 7,
+  });
+  const [loadingPaymentConfig, setLoadingPaymentConfig] = useState(false);
+  const [savingPaymentConfig, setSavingPaymentConfig] = useState(false);
+  const [testingRazorpay, setTestingRazorpay] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showSecretKey, setShowSecretKey] = useState(false);
+
+  const fetchPaymentConfig = async () => {
+    setLoadingPaymentConfig(true);
+    try {
+      const res = await fetch("/api/admin/payment-config");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) {
+          setPaymentConfig(data.config);
+        }
+      }
+    } catch (err) {
+      console.error("Fetch payment config error:", err);
+    } finally {
+      setLoadingPaymentConfig(false);
+    }
+  };
+
+  const handleSavePaymentConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPaymentConfig(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/payment-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentConfig),
+      });
+      if (res.ok) {
+        setSuccessMsg("Payment gateway configuration saved successfully!");
+        fetchPaymentConfig();
+      } else {
+        alert("Failed to save payment configuration");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving payment configuration");
+    } finally {
+      setSavingPaymentConfig(false);
+    }
+  };
+
+  const handleTestCredentials = async () => {
+    if (!paymentConfig.keyId || !paymentConfig.keySecret) {
+      alert("Please enter both Razorpay Key ID and Key Secret to test");
+      return;
+    }
+    setTestingRazorpay(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/payment-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "TEST_CREDENTIALS",
+          keyId: paymentConfig.keyId,
+          keySecret: paymentConfig.keySecret,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestResult({ success: true, message: data.message });
+      } else {
+        setTestResult({ success: false, message: data.error || "Connection failed" });
+      }
+    } catch (err) {
+      setTestResult({ success: false, message: "Network error testing Razorpay API" });
+    } finally {
+      setTestingRazorpay(false);
+    }
+  };
 
   // Plans Management State
   const [plans, setPlans] = useState<PlanItem[]>([]);
@@ -617,6 +709,7 @@ export default function MasterAdminPage() {
     fetchCoupons();
     fetchOffers();
     fetchGlobalBranding();
+    fetchPaymentConfig();
   }, [fetchStats]);
 
   const handleLogout = async () => {
@@ -888,6 +981,7 @@ export default function MasterAdminPage() {
               { id: "PLANS", label: "Plans & Pricing", icon: Layers, count: plans.length },
               { id: "COUPONS", label: "Coupon Codes", icon: Tag, count: coupons.length },
               { id: "OFFERS", label: "Promotions & Offers", icon: Sparkles, count: offers.length },
+              { id: "PAYMENTS", label: "Payment Gateway", icon: CreditCard, count: paymentConfig.enabled ? (paymentConfig.mode === "LIVE" ? "LIVE" : "TEST") : "OFF" },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = adminTab === tab.id;
@@ -1594,6 +1688,321 @@ export default function MasterAdminPage() {
             )}
           </div>
         )}
+
+        {/* ================= PAYMENT GATEWAY CONFIGURATION TAB ================= */}
+        {adminTab === "PAYMENTS" && (
+          <div className="space-y-6">
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-blue-400" />
+                  <span>Payment Gateway &amp; Billing Configuration</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Manage Razorpay API credentials, environment modes (Test / Live), webhook security, and renewal notice policies.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  paymentConfig.enabled
+                    ? paymentConfig.mode === "LIVE"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                }`}>
+                  {paymentConfig.enabled ? `${paymentConfig.mode} MODE ACTIVE` : "GATEWAY DISABLED"}
+                </span>
+              </div>
+            </div>
+
+            {testResult && (
+              <div className={`p-4 rounded-2xl border text-xs font-medium flex items-center justify-between ${
+                testResult.success
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+              }`}>
+                <div className="flex items-center gap-2">
+                  {testResult.success ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
+                  <span>{testResult.message}</span>
+                </div>
+                <button onClick={() => setTestResult(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSavePaymentConfig} className="space-y-6">
+              {/* 1. Gateway Status & Environment Mode */}
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-400" />
+                  <span>1. Gateway Status &amp; Environment</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Payment Gateway Provider
+                    </label>
+                    <select
+                      value={paymentConfig.provider}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, provider: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="RAZORPAY">Razorpay (India &amp; Global UPI / Cards)</option>
+                      <option value="MANUAL">Manual Offline / Direct UPI Only</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Environment / Mode
+                    </label>
+                    <select
+                      value={paymentConfig.mode}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, mode: e.target.value })}
+                      className={`w-full text-xs p-2.5 bg-slate-900 border rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        paymentConfig.mode === "LIVE" ? "text-emerald-400 border-emerald-500/50" : "text-amber-400 border-amber-500/50"
+                      }`}
+                    >
+                      <option value="TEST">TEST / SANDBOX (Demo Payments)</option>
+                      <option value="LIVE">LIVE / PRODUCTION (Real Money)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Settlement Currency
+                    </label>
+                    <select
+                      value={paymentConfig.currency}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, currency: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="INR">INR (₹ - Indian Rupee)</option>
+                      <option value="USD">USD ($ - US Dollar)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={paymentConfig.enabled}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, enabled: e.target.checked })}
+                      className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                    />
+                    <span>
+                      <strong>Enable Online Payment Gateway</strong> (allows client businesses to pay subscriptions and buy standees online)
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 2. Razorpay API Credentials */}
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Key className="w-4 h-4 text-amber-400" />
+                    <span>2. Razorpay API Keys</span>
+                  </h3>
+                  <a
+                    href="https://dashboard.razorpay.com/app/keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
+                  >
+                    <span>Razorpay Dashboard API Keys</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Razorpay Key ID <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="rzp_test_... or rzp_live_..."
+                      value={paymentConfig.keyId}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, keyId: e.target.value.trim() })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Starts with <code className="text-slate-400">rzp_test_</code> for sandbox or <code className="text-slate-400">rzp_live_</code> for production.
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-300">
+                        Razorpay Key Secret <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowSecretKey(!showSecretKey)}
+                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
+                      >
+                        {showSecretKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        <span>{showSecretKey ? "Hide" : "Show"}</span>
+                      </button>
+                    </div>
+                    <input
+                      type={showSecretKey ? "text" : "password"}
+                      placeholder="Enter Razorpay Secret Key"
+                      value={paymentConfig.keySecret}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, keySecret: e.target.value.trim() })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Used by backend API to generate orders and verify HMAC signatures.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Webhook Secret (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Enter Razorpay Webhook Secret for callback validation"
+                    value={paymentConfig.webhookSecret}
+                    onChange={(e) => setPaymentConfig({ ...paymentConfig, webhookSecret: e.target.value.trim() })}
+                    className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-750">
+                  <div className="text-xs text-slate-400">
+                    <span className="font-semibold text-slate-300">Verify Credentials:</span> Test connection to Razorpay API with the entered keys before saving.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTestCredentials}
+                    disabled={testingRazorpay}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors self-start sm:self-auto shrink-0"
+                  >
+                    {testingRazorpay ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Test API Connection</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Dunning & Renewal Policy Rules */}
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <RotateCw className="w-4 h-4 text-emerald-400" />
+                  <span>3. Renewal Notification &amp; Suspension Rules</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Payment Pending Notification Trigger (Days Prior to Due Date)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={paymentConfig.gracePeriodDays}
+                        onChange={(e) => setPaymentConfig({ ...paymentConfig, gracePeriodDays: Number(e.target.value) })}
+                        className="w-24 text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-400">days before expiration (Default: 7 days)</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Shows warning banner &amp; payment button in client dashboard starting 7 days prior to renewal.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Suspension Policy After Due Date
+                    </label>
+                    <div className="p-3 bg-slate-900 rounded-xl border border-slate-750 text-xs text-slate-400 space-y-1">
+                      <div className="text-rose-400 font-semibold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Automatic Access Lockdown</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        When subscription expires, client QR code and URL are paused, dashboard is greyed out, and only renewal payment popup is accessible.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Manual Offline UPI / Bank Payment Fallback */}
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Package className="w-4 h-4 text-purple-400" />
+                  <span>4. Direct UPI &amp; Offline Payment Fallback (Optional)</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Direct UPI VPA / ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. unboxstudio@icici or 9876543210@upi"
+                      value={paymentConfig.manualUpiId}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, manualUpiId: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Displayed on manual payment invoices or when online gateway is paused.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Bank Transfer Details (NEFT/IMPS)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="A/C No: 1234567890, IFSC: HDFC0001234, Name: Unbox Studio"
+                      value={paymentConfig.manualBankDetails}
+                      onChange={(e) => setPaymentConfig({ ...paymentConfig, manualBankDetails: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={savingPaymentConfig}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 transition-all active:scale-95"
+                >
+                  {savingPaymentConfig ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Save Payment Configuration</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
       </main>
 
       {/* ================= EDIT BUSINESS & SUBSCRIPTION MODAL ================= */}
