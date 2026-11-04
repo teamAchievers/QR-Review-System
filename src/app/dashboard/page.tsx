@@ -339,6 +339,189 @@ export default function BusinessDashboardPage() {
     }
   };
 
+  // Dedicated Print Function: Prints ONLY the standee card with zero dashboard clutter
+  const handlePrintStandee = () => {
+    const standeeEl = document.getElementById("printable-standee");
+    if (!standeeEl) {
+      window.print();
+      return;
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const bName = business?.name || "Our Business";
+    const bCity = business?.city || "";
+    const bColor = business?.primaryColor || "#2563eb";
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Standee - ${bName}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body {
+              margin: 0;
+              padding: 24px;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 95vh;
+              background: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .standee-card {
+              max-width: 360px;
+              width: 100%;
+              border: 2px solid #cbd5e1;
+              border-radius: 28px;
+              padding: 36px 24px 28px;
+              text-align: center;
+              position: relative;
+              background: #ffffff;
+              overflow: hidden;
+            }
+            .accent-bar {
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 10px;
+              background: linear-gradient(to right, #2563eb, #4f46e5);
+            }
+            .logo-badge {
+              width: 54px;
+              height: 54px;
+              border-radius: 16px;
+              margin: 0 auto 12px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #ffffff;
+              font-weight: 800;
+              font-size: 24px;
+              background-color: ${bColor};
+            }
+            h1 {
+              font-size: 22px;
+              font-weight: 800;
+              color: #0f172a;
+              margin: 0;
+              line-height: 1.25;
+            }
+            .city {
+              font-size: 12px;
+              color: #64748b;
+              margin: 4px 0 10px;
+            }
+            .stars {
+              color: #fbbf24;
+              font-size: 22px;
+              letter-spacing: 4px;
+              margin: 8px 0;
+            }
+            h2 {
+              font-size: 16px;
+              font-weight: 700;
+              color: #1e293b;
+              margin: 12px 0 4px;
+            }
+            .subtitle {
+              font-size: 12px;
+              color: #64748b;
+              margin: 0 0 16px;
+              line-height: 1.4;
+            }
+            .qr-wrap {
+              display: inline-block;
+              padding: 10px;
+              background: #f8fafc;
+              border: 2px solid #e2e8f0;
+              border-radius: 20px;
+              margin-bottom: 14px;
+            }
+            .qr-img {
+              width: 190px;
+              height: 190px;
+              display: block;
+              border-radius: 12px;
+            }
+            .pill {
+              font-size: 11px;
+              font-weight: 600;
+              color: #475569;
+              background: #f1f5f9;
+              padding: 6px 14px;
+              border-radius: 9999px;
+              display: inline-block;
+            }
+            .brand-footer {
+              margin-top: 20px;
+              padding-top: 12px;
+              border-top: 1px solid #f1f5f9;
+              font-size: 11px;
+              color: #94a3b8;
+            }
+            .brand-footer strong {
+              color: #334155;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="standee-card">
+            <div class="accent-bar"></div>
+            <div class="logo-badge">${bName.charAt(0)}</div>
+            <h1>${bName}</h1>
+            ${bCity ? `<div class="city">${bCity}</div>` : ""}
+            <div class="stars">★★★★★</div>
+            <h2>How Was Your Visit?</h2>
+            <div class="subtitle">Scan with your phone camera to share your honest thoughts with us</div>
+            <div class="qr-wrap">
+              <img src="${qrDataUrl}" class="qr-img" alt="Scan to Review" />
+            </div>
+            <div>
+              <span class="pill">⚡ Quick 15-second feedback</span>
+            </div>
+            <div class="brand-footer">
+              Powered by <strong>Unbox Studio</strong>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 350);
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
@@ -640,8 +823,8 @@ export default function BusinessDashboardPage() {
                     <p className="text-xs text-slate-500">Ready to print for your physical storefront</p>
                   </div>
                   <button
-                    onClick={() => window.print()}
-                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                    onClick={handlePrintStandee}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs active:scale-95"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Print Standee</span>
@@ -679,8 +862,14 @@ export default function BusinessDashboardPage() {
                     {qrDataUrl && <img src={qrDataUrl} alt="Printable QR" className="w-48 h-auto rounded-lg" />}
                   </div>
 
-                  <div className="text-[11px] font-semibold text-slate-600 bg-slate-100 py-1.5 px-3 rounded-full inline-block">
-                    ⚡ Quick 15-second feedback
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-600 bg-slate-100 py-1.5 px-3 rounded-full inline-block">
+                      ⚡ Quick 15-second feedback
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
+                    Powered by <strong className="text-slate-600">Unbox Studio</strong>
                   </div>
                 </div>
               </div>

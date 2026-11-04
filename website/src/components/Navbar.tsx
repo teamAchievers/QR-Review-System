@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Sparkles, Menu, X, ArrowRight, ShieldCheck, Zap, LogIn, ExternalLink } from 'lucide-react';
+import { getPortalUrl } from '../config';
 
 interface NavbarProps {
   onOpenSubscribe: (planId?: string) => void;
@@ -9,6 +10,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const portalUrl = getPortalUrl();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -85,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) =
             <div className="hidden sm:flex items-center gap-2.5">
               {/* Client / Admin Login Link */}
               <a
-                href="http://localhost:3000/login"
+                href={`${portalUrl}/login`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 hover:text-white border border-white/10 transition-all cursor-pointer"
@@ -110,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) =
             {/* Mobile Hamburger Toggle */}
             <div className="lg:hidden flex items-center gap-2">
               <a
-                href="http://localhost:3000/login"
+                href={`${portalUrl}/login`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-white/10"
@@ -144,7 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) =
             </div>
             <div className="pt-3 border-t border-white/10 space-y-2">
               <a
-                href="http://localhost:3000/login"
+                href={`${portalUrl}/login`}
                 target="_blank"
                 rel="noreferrer"
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 text-slate-200 text-sm font-medium"
