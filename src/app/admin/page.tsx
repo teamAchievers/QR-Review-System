@@ -48,6 +48,7 @@ interface BusinessWithUser {
   phone: string | null;
   email: string | null;
   logoUrl: string | null;
+  primaryColor?: string | null;
   status: string;
   googleReviewUrl: string;
   googlePlaceId: string | null;
@@ -585,6 +586,172 @@ export default function MasterAdminPage() {
   const [showGoogleHelpCreate, setShowGoogleHelpCreate] = useState(false);
   const [showTripadvisorHelpEdit, setShowTripadvisorHelpEdit] = useState(false);
   const [showTripadvisorHelpCreate, setShowTripadvisorHelpCreate] = useState(false);
+  // Admin View QR & Standee Modal State
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrModalBusiness, setQrModalBusiness] = useState<BusinessWithUser | null>(null);
+  const [qrModalPlatform, setQrModalPlatform] = useState<"google" | "tripadvisor">("google");
+  const [qrModalDataUrl, setQrModalDataUrl] = useState<string>("");
+  const [qrModalTaDataUrl, setQrModalTaDataUrl] = useState<string>("");
+  const [qrModalLoading, setQrModalLoading] = useState(false);
+  const [qrModalCopied, setQrModalCopied] = useState(false);
+
+  const handleOpenQrStandeeModal = async (b: BusinessWithUser) => {
+    setQrModalBusiness(b);
+    setQrModalPlatform("google");
+    setQrModalDataUrl("");
+    setQrModalTaDataUrl("");
+    setQrModalLoading(true);
+    setQrModalOpen(true);
+
+    try {
+      const gRes = await fetch(`/api/qr?slug=${b.slug}`);
+      const gJson = await gRes.json();
+      if (gJson.dataUrl) setQrModalDataUrl(gJson.dataUrl);
+
+      if (b.tripadvisorEnabled !== false) {
+        const taRes = await fetch(`/api/qr?slug=${b.slug}&platform=tripadvisor`);
+        const taJson = await taRes.json();
+        if (taJson.dataUrl) setQrModalTaDataUrl(taJson.dataUrl);
+      }
+    } catch (err) {
+      console.error("Error loading QR for admin modal:", err);
+    } finally {
+      setQrModalLoading(false);
+    }
+  };
+
+  const handlePrintAdminStandee = () => {
+    if (!qrModalBusiness) return;
+    const b = qrModalBusiness;
+    const isTa = qrModalPlatform === "tripadvisor";
+    const currentQr = isTa ? (qrModalTaDataUrl || qrModalDataUrl) : qrModalDataUrl;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Standee - ${b.name}</title>
+          <style>
+            @page { size: A4 portrait; margin: 10mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body {
+              margin: 0; padding: 24px; display: flex; justify-content: center; align-items: center;
+              min-height: 95vh; background: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .standee-card {
+              max-width: 360px; width: 100%; border: 2px solid #cbd5e1; border-radius: 28px;
+              padding: 36px 24px 28px; text-align: center; position: relative; background: #ffffff; overflow: hidden;
+            }
+            .accent-bar {
+              position: absolute; top: 0; left: 0; right: 0; height: 10px;
+              background: ${isTa ? 'linear-gradient(to right, #00aa6c, #008f5a)' : 'linear-gradient(to right, #2563eb, #4f46e5)'};
+            }
+            .logo-badge {
+              width: 54px; height: 54px; border-radius: 16px; margin: 0 auto 12px;
+              display: flex; align-items: center; justify-content: center; color: #ffffff;
+              font-weight: 800; font-size: 24px;
+              background-color: ${isTa ? '#00aa6c' : (b.primaryColor || '#2563eb')};
+            }
+            h1 { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.25; }
+            .city { font-size: 12px; color: #64748b; margin: 4px 0 10px; }
+            .stars { color: #fbbf24; font-size: 22px; letter-spacing: 4px; margin: 8px 0; }
+            .bubbles { display: flex; justify-content: center; gap: 6px; margin: 8px 0; }
+            .bubble { width: 16px; height: 16px; border-radius: 50%; background: #00aa6c; display: inline-block; }
+            h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 12px 0 4px; }
+            .subtitle { font-size: 12px; color: #64748b; margin: 0 0 16px; line-height: 1.4; }
+            .qr-wrap {
+              display: inline-block; padding: 10px; background: #f8fafc; border: 2px solid #e2e8f0;
+              border-radius: 20px; margin-bottom: 14px;
+            }
+            .qr-img { width: 190px; height: 190px; display: block; border-radius: 12px; }
+            .pill {
+              font-size: 11px; font-weight: 600; color: #475569; background: #f1f5f9;
+              padding: 6px 14px; border-radius: 9999px; display: inline-block;
+            }
+            .brand-footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; }
+            .brand-footer strong { color: #334155; }
+          </style>
+        </head>
+        <body>
+          <div class="standee-card">
+            <div class="accent-bar"></div>
+            <div class="logo-badge">${b.name.charAt(0)}</div>
+            <h1>${b.name}</h1>
+            ${b.city ? `<div class="city">${b.city}</div>` : ""}
+            ${isTa ? `
+              <div class="bubbles">
+                <span class="bubble"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span><span class="bubble"></span>
+              </div>
+            ` : `
+              <div class="stars">★★★★★</div>
+            `}
+            <h2>${isTa ? "Review Us on TripAdvisor" : "How Was Your Visit?"}</h2>
+            <div class="subtitle">${isTa ? "Scan with your camera to review us on TripAdvisor" : "Scan with your phone camera to share your honest thoughts with us"}</div>
+            <div class="qr-wrap">
+              <img src="${currentQr}" class="qr-img" alt="Scan to Review" />
+            </div>
+            <div>
+              <span class="pill">${isTa ? "🟢 Official TripAdvisor Review" : "⚡ Quick 15-second feedback"}</span>
+            </div>
+            <div class="brand-footer">
+              Powered by <strong>${b.poweredByText || "Unbox Studio"}</strong>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 350);
+  };
+
+  const handleDownloadAdminPng = () => {
+    if (!qrModalBusiness) return;
+    const isTa = qrModalPlatform === "tripadvisor";
+    const currentQr = isTa ? (qrModalTaDataUrl || qrModalDataUrl) : qrModalDataUrl;
+    if (!currentQr) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1000;
+      canvas.height = 1120;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, 1000, 1120);
+        ctx.drawImage(img, 0, 0, 1000, 1120);
+        const pngUrl = canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = pngUrl;
+        a.download = `qr-${qrModalBusiness.slug}-${qrModalPlatform}-branded.png`;
+        a.click();
+      }
+    };
+    img.src = currentQr;
+  };
+
   const [brandingModalOpen, setBrandingModalOpen] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [globalBranding, setGlobalBranding] = useState({
@@ -1284,14 +1451,14 @@ export default function MasterAdminPage() {
                             <Edit2 className="w-3 h-3" />
                             <span>Edit</span>
                           </button>
-                          <a
-                            href={`/api/qr?slug=${b.slug}&format=svg`}
-                            download={`qr-${b.slug}.svg`}
-                            className="px-2 py-1 bg-slate-900 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-[11px]"
-                            title="Download SVG QR"
+                          <button
+                            onClick={() => handleOpenQrStandeeModal(b)}
+                            className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                            title="View Branded QR Code & Printable Standee"
                           >
-                            QR
-                          </a>
+                            <QrCode className="w-3 h-3 text-emerald-400" />
+                            <span>QR &amp; Standee</span>
+                          </button>
                           <button
                             onClick={() => handleDeleteBusiness(b.id, b.name)}
                             className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors"
