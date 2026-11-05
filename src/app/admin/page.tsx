@@ -5409,6 +5409,479 @@ export default function MasterAdminPage() {
         </div>
       )}
 
+            {/* ================= AGENTS, FIELD AGENTS & STAFF OPERATIONS MODAL ================= */}
+      {usersModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl max-w-4xl w-full p-5 sm:p-7 shadow-2xl my-6 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-800 shrink-0 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-inner">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                    <span>Agents &amp; Staff Operations Studio</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      {usersList.length} Accounts
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Create &amp; manage Sales Agents, Field Deployment Executives, and Business Admins
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCreateUserDrawerOpen(!createUserDrawerOpen)}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>{createUserDrawerOpen ? "Close Form" : "+ Create Agent / User"}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setUsersModalOpen(false);
+                    setCreateUserDrawerOpen(false);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Stat Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4 shrink-0">
+              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3">
+                <div className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 mb-1">
+                  <Users className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Total Users</span>
+                </div>
+                <div className="text-lg font-black text-white">{userStats.total}</div>
+              </div>
+
+              <div className="bg-purple-950/20 border border-purple-800/40 rounded-2xl p-3">
+                <div className="text-[11px] font-semibold text-purple-300 flex items-center gap-1.5 mb-1">
+                  <Briefcase className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Sales Agents</span>
+                </div>
+                <div className="text-lg font-black text-purple-300">{userStats.agents}</div>
+              </div>
+
+              <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-2xl p-3">
+                <div className="text-[11px] font-semibold text-emerald-300 flex items-center gap-1.5 mb-1">
+                  <Wrench className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Field Agents</span>
+                </div>
+                <div className="text-lg font-black text-emerald-300">{userStats.fieldAgents}</div>
+              </div>
+
+              <div className="bg-blue-950/20 border border-blue-800/40 rounded-2xl p-3">
+                <div className="text-[11px] font-semibold text-blue-300 flex items-center gap-1.5 mb-1">
+                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Business Admins</span>
+                </div>
+                <div className="text-lg font-black text-blue-300">{userStats.businessAdmins}</div>
+              </div>
+            </div>
+
+            {/* Collapsible / Expandable Create User Drawer */}
+            {createUserDrawerOpen && (
+              <div className="bg-slate-950/90 border border-purple-500/30 rounded-2xl p-4 sm:p-5 mb-4 shrink-0 animate-in slide-in-from-top-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-purple-400" />
+                    <h4 className="text-sm font-bold text-white">Create New Agent or Staff Account</h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Select role &amp; assign access credentials</span>
+                </div>
+
+                {userErrorMsg && (
+                  <div className="mb-3 p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{userErrorMsg}</span>
+                  </div>
+                )}
+
+                {userSuccessMsg && (
+                  <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span>{userSuccessMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateNewUser} className="space-y-4">
+                  {/* Role Selector Card Matrix */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Select Role / Responsibility <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {/* Agent Card */}
+                      <button
+                        type="button"
+                        onClick={() => setNewUserForm({ ...newUserForm, role: "AGENT" })}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newUserForm.role === "AGENT"
+                            ? "bg-purple-600/25 border-purple-500 shadow-md ring-1 ring-purple-500"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-300">
+                            <Briefcase className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-white">Agent (Sales)</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Onboards client businesses, tracks signups &amp; manages client relationships
+                        </p>
+                      </button>
+
+                      {/* Field Agent Card */}
+                      <button
+                        type="button"
+                        onClick={() => setNewUserForm({ ...newUserForm, role: "FIELD_AGENT" })}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newUserForm.role === "FIELD_AGENT"
+                            ? "bg-emerald-600/25 border-emerald-500 shadow-md ring-1 ring-emerald-500"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-300">
+                            <Wrench className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-white">Field Agent</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Deploys countertop acrylic standees, programs NFC tags &amp; on-site hardware
+                        </p>
+                      </button>
+
+                      {/* Business Admin Card */}
+                      <button
+                        type="button"
+                        onClick={() => setNewUserForm({ ...newUserForm, role: "BUSINESS_ADMIN" })}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newUserForm.role === "BUSINESS_ADMIN"
+                            ? "bg-blue-600/25 border-blue-500 shadow-md ring-1 ring-blue-500"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-300">
+                            <Building2 className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-white">Business Admin</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Client business manager with access to reviews, feedback &amp; dashboard
+                        </p>
+                      </button>
+
+                      {/* Super Admin Card */}
+                      <button
+                        type="button"
+                        onClick={() => setNewUserForm({ ...newUserForm, role: "SUPER_ADMIN" })}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          newUserForm.role === "SUPER_ADMIN"
+                            ? "bg-amber-600/25 border-amber-500 shadow-md ring-1 ring-amber-500"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-300">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-white">Super Admin</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Full master administrative access across all system settings &amp; accounts
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Form Input Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Full Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Rahul Sharma"
+                        value={newUserForm.name}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Email Address <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="agent@example.com"
+                        value={newUserForm.email}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-300">
+                          Password <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const gen = "Agent#" + Math.floor(1000 + Math.random() * 9000) + "!";
+                            setNewUserForm({ ...newUserForm, password: gen });
+                          }}
+                          className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold"
+                        >
+                          Generate
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Min 6 characters"
+                        value={newUserForm.password}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Assign Business (Optional)
+                      </label>
+                      <select
+                        value={newUserForm.businessId}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, businessId: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="NONE">None / Floating Representative</option>
+                        {businesses.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.city || "Direct"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCreateUserDrawerOpen(false)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creatingUser}
+                      className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {creatingUser ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Creating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Create {newUserForm.role === "AGENT" ? "Agent" : newUserForm.role === "FIELD_AGENT" ? "Field Agent" : "User"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                {[
+                  { key: "ALL", label: "All Users", count: userStats.total },
+                  { key: "AGENT", label: "Agents", count: userStats.agents, color: "text-purple-300" },
+                  { key: "FIELD_AGENT", label: "Field Agents", count: userStats.fieldAgents, color: "text-emerald-300" },
+                  { key: "BUSINESS_ADMIN", label: "Business Admins", count: userStats.businessAdmins, color: "text-blue-300" },
+                  { key: "SUPER_ADMIN", label: "Super Admins", count: userStats.superAdmins, color: "text-amber-300" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setUserFilterRole(tab.key)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                      userFilterRole === tab.key
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "bg-slate-950/60 border border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className="ml-1.5 text-[10px] opacity-75">({tab.count})</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search name or email..."
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="w-full text-xs pl-8 pr-3 py-2 bg-slate-950/60 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            {/* User Directory Table */}
+            <div className="overflow-y-auto flex-1 border border-slate-800 rounded-2xl bg-slate-950/50">
+              {usersLoading ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <span>Loading team directory...</span>
+                </div>
+              ) : (() => {
+                const filteredUsers = usersList.filter((u) => {
+                  const matchRole = userFilterRole === "ALL" || u.role === userFilterRole;
+                  const matchSearch =
+                    !userSearchTerm ||
+                    u.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                    u.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                    (u.business?.name && u.business.name.toLowerCase().includes(userSearchTerm.toLowerCase()));
+                  return matchRole && matchSearch;
+                });
+
+                if (filteredUsers.length === 0) {
+                  return (
+                    <div className="p-12 text-center text-slate-400 text-xs">
+                      No users found matching the selected filter.
+                    </div>
+                  );
+                }
+
+                return (
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/90 text-slate-400 text-[11px] font-semibold border-b border-slate-800 sticky top-0">
+                      <tr>
+                        <th className="py-2.5 px-4">User</th>
+                        <th className="py-2.5 px-4">Role</th>
+                        <th className="py-2.5 px-4">Assigned Business</th>
+                        <th className="py-2.5 px-4">Created</th>
+                        <th className="py-2.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {filteredUsers.map((u) => {
+                        const roleBadge = (() => {
+                          switch (u.role) {
+                            case "AGENT":
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  <Briefcase className="w-3 h-3" />
+                                  <span>Agent (Sales)</span>
+                                </span>
+                              );
+                            case "FIELD_AGENT":
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  <Wrench className="w-3 h-3" />
+                                  <span>Field Agent</span>
+                                </span>
+                              );
+                            case "BUSINESS_ADMIN":
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                  <Building2 className="w-3 h-3" />
+                                  <span>Business Admin</span>
+                                </span>
+                              );
+                            case "SUPER_ADMIN":
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  <span>Super Admin</span>
+                                </span>
+                              );
+                            default:
+                              return (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700 text-slate-300">
+                                  {u.role}
+                                </span>
+                              );
+                          }
+                        })();
+
+                        const initials = u.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2);
+
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-900/50 transition-colors">
+                            <td className="py-2.5 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[11px] text-slate-200">
+                                  {initials}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-white text-xs">{u.name}</div>
+                                  <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4">{roleBadge}</td>
+                            <td className="py-2.5 px-4 text-[11px]">
+                              {u.business ? (
+                                <div className="flex items-center gap-1.5 text-slate-300 font-medium">
+                                  <Building2 className="w-3 h-3 text-slate-500" />
+                                  <span>{u.business.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic">🌐 Floating / Multi-client</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 text-[11px] text-slate-400 font-mono">
+                              {new Date(u.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-2.5 px-4 text-right">
+                              {u.role !== "SUPER_ADMIN" && (
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.name)}
+                                  className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors"
+                                  title="Delete user"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* ================= STANDEE ORDERS MANAGEMENT MODAL ================= */}
       {ordersModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
