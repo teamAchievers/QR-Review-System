@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Check, Sparkles, ArrowRight, ShieldCheck, Zap, HelpCircle } from 'lucide-react';
-import { PRICING_PLANS, Plan } from '../data/mockData';
+import { Check, Sparkles, ArrowRight, ShieldCheck, Zap, RefreshCw } from 'lucide-react';
+import { usePlans } from '../services/plansService';
+import { Plan } from '../data/mockData';
 
 interface PricingSectionProps {
   onOpenSubscribe: (planId?: string) => void;
 }
 
 export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe }) => {
+  const { plans, loading } = usePlans();
   const [isAnnual, setIsAnnual] = useState(true);
 
   return (
@@ -20,7 +22,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
         <div className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold uppercase tracking-wider mb-4 shadow-sm">
             <Zap className="w-3.5 h-3.5" />
-            <span>Transparent SaaS Plans</span>
+            <span>Admin-Configured SaaS Plans</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-['Space_Grotesk'] mb-4">
             Invest in Revenue-Generating Reputation
@@ -47,7 +49,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
             >
               <span>Annual Billing</span>
               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
-                SAVE 20%
+                SAVE ~20%
               </span>
             </button>
           </div>
@@ -55,9 +57,13 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
 
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-          {PRICING_PLANS.map((plan: Plan) => {
+          {plans.map((plan: Plan) => {
             const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
             const isPopular = plan.popular;
+            const symbol = plan.currencySymbol || (plan.currency === 'USD' ? '$' : '₹');
+            const annualBillingNote = plan.annualTotal
+              ? `Billed annually (${symbol}${plan.annualTotal.toLocaleString()}/yr)`
+              : `Billed annually (${symbol}${(plan.annualPrice * 12).toLocaleString()}/yr)`;
 
             return (
               <div
@@ -77,9 +83,9 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
                       <div className="flex items-center justify-between mb-4">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow">
                           <Sparkles className="w-3 h-3 text-cyan-200" />
-                          {plan.badge}
+                          {plan.badge || 'MOST POPULAR'}
                         </span>
-                        <span className="text-xs text-blue-700 font-semibold">Includes 3 Stands</span>
+                        <span className="text-xs text-blue-700 font-semibold">Includes {plan.standsIncluded} Stand{plan.standsIncluded > 1 ? 's' : ''}</span>
                       </div>
                     )}
 
@@ -93,12 +99,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
                     <div className="mb-6 pb-6 border-b border-slate-200">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-4xl sm:text-5xl font-black text-slate-900 font-['Space_Grotesk']">
-                          ${price}
+                          {symbol}{price.toLocaleString()}
                         </span>
                         <span className="text-xs text-slate-500 font-medium">/ month</span>
                       </div>
                       <p className="text-[11px] text-blue-600 font-semibold mt-1">
-                        {isAnnual ? 'Billed annually ($' + (price * 12) + '/yr)' : 'Billed monthly • Cancel anytime'}
+                        {isAnnual ? annualBillingNote : 'Billed monthly • Cancel anytime'}
                       </p>
                       <div className="mt-3 inline-block text-[11px] font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                         {plan.limits}
@@ -157,7 +163,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
             </div>
           </div>
           <button
-            onClick={() => onOpenSubscribe('enterprise')}
+            onClick={() => onOpenSubscribe('pro')}
             className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 border border-slate-300 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
           >
             Contact Franchise Sales

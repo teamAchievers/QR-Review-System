@@ -7,6 +7,9 @@ export interface Plan {
   popular?: boolean;
   monthlyPrice: number;
   annualPrice: number;
+  annualTotal?: number;
+  currency?: string;
+  currencySymbol?: string;
   features: string[];
   standsIncluded: number;
   limits: string;
@@ -15,63 +18,65 @@ export interface Plan {
 export const PRICING_PLANS: Plan[] = [
   {
     id: 'starter',
-    name: 'Starter Shield',
+    name: 'Starter Launch',
     tier: 'STARTER',
-    tagline: 'Ideal for single-location clinics, cafes & local service practices.',
-    monthlyPrice: 39,
-    annualPrice: 31,
-    limits: '1 Location • Up to 750 scans/mo',
+    tagline: 'Perfect for single location cafes, clinics, and studios',
+    monthlyPrice: 350,
+    annualPrice: 292,
+    annualTotal: 3500,
+    currency: 'INR',
+    currencySymbol: '₹',
+    limits: '1 Location • Unlimited Scans',
     standsIncluded: 1,
     features: [
-      'Smart Review Gating (4-5★ to Google, 1-3★ Private)',
-      '1 Free Custom Heavyweight Acrylic QR Stand',
-      'Instant Email Alerts for Low Ratings',
-      'Google Maps & Local SEO Keyword Enrichment',
-      'Client Dashboard with Private Feedback Inbox',
-      'Printable Counter Standee & Table-Tent Studio',
-      'Zero App Needed for Customers'
+      '1 Branded QR Code with your logo',
+      'Unlimited Customer Scans',
+      'Private Negative Feedback Shield',
+      'Basic Keyword Weaving'
     ]
   },
   {
     id: 'growth',
-    name: 'Growth & SEO Booster Pro',
+    name: 'Growth Pro',
     tier: 'GROWTH',
-    tagline: 'Our most popular plan for high-traffic restaurants, clinics & studios.',
+    tagline: 'Best for fast-growing local businesses seeking 5-star Google dominance',
     badge: 'MOST POPULAR • BEST ROI',
     popular: true,
-    monthlyPrice: 79,
-    annualPrice: 63,
+    monthlyPrice: 800,
+    annualPrice: 417,
+    annualTotal: 5000,
+    currency: 'INR',
+    currencySymbol: '₹',
     limits: 'Up to 3 Locations • Unlimited Scans',
     standsIncluded: 3,
     features: [
-      'Everything in Starter, plus:',
-      '3 Free Custom Designer NFC + QR Stands Shipped Free',
-      'AI / Gemini SEO Keyword Weaving Engine',
-      'Instant SMS & WhatsApp Manager Escalations (< 30s)',
-      'Direct 1-Click Clipboard Copy & Google Maps Launch',
-      'Multiple Review Variation Selector for Guests',
-      'Staff Attribution & Server/Nurse Leaderboard',
-      'Razorpay & Stripe Automated Billing',
-      'Priority VIP Support & Dedicated Onboarding Specialist'
+      'Everything in Starter',
+      'AI Keyword Optimization (Gemini)',
+      'Niche Highlight Pills & Smart Placeholders',
+      'Multi-Variation Review Copying',
+      '1 Free Premium Acrylic Standee Shipped',
+      'Priority WhatsApp Support'
     ]
   },
   {
-    id: 'enterprise',
-    name: 'Multi-Location Enterprise',
-    tier: 'ENTERPRISE',
-    tagline: 'For franchises, hospitality groups, multi-chair clinics & chains.',
-    monthlyPrice: 199,
-    annualPrice: 159,
-    limits: 'Up to 12 Locations (Add more seamlessly)',
-    standsIncluded: 12,
+    id: 'pro',
+    name: 'Enterprise Elite',
+    tier: 'PRO',
+    tagline: 'For multi-location chains, premium franchises, and agencies',
+    monthlyPrice: 1500,
+    annualPrice: 1000,
+    annualTotal: 12000,
+    currency: 'INR',
+    currencySymbol: '₹',
+    limits: 'Multi-Location Enterprise',
+    standsIncluded: 5,
     features: [
-      'Everything in Growth, plus:',
-      '12 Free Premium Laser-Engraved Acrylic/Metal Stands',
-      'Master Super Admin Multi-Tenant Command Center',
-      'Custom Branded Domain (reviews.yourbrand.com)',
-      'Automated Google Review Removal Dispute Assistant',
-      'Custom POS & CRM Deep Integrations (Toast, Square, Clover)',
-      'Dedicated Account Manager + 99.9% SLA'
+      'Everything in Growth',
+      'Up to 5 Custom Physical Standees Delivered',
+      'Multi-Location Dashboard Access',
+      'Monthly Local SEO & Reputation Audit',
+      'Dedicated Account Manager',
+      'Custom Domain White-Label Option'
     ]
   }
 ];

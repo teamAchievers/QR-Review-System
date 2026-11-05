@@ -18,7 +18,8 @@ import {
   Lock,
   ExternalLink
 } from 'lucide-react';
-import { PRICING_PLANS, Plan } from '../data/mockData';
+import { usePlans } from '../services/plansService';
+import { Plan } from '../data/mockData';
 
 interface SubscribeModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
   initialPlanId = 'growth' 
 }) => {
   const portalUrl = getPortalUrl();
+  const { plans } = usePlans();
   const [selectedPlanId, setSelectedPlanId] = useState<string>(initialPlanId);
   const [isAnnual, setIsAnnual] = useState<boolean>(true);
   const [step, setStep] = useState<number>(1); // 1: Plan, 2: Info, 3: Address & Google Place, 4: Success
@@ -52,7 +54,8 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
 
   if (!isOpen) return null;
 
-  const activePlan = PRICING_PLANS.find(p => p.id === selectedPlanId) || PRICING_PLANS[1];
+  const activePlan = plans.find(p => p.id === selectedPlanId || p.tier.toLowerCase() === selectedPlanId.toLowerCase()) || plans[1] || plans[0];
+  const symbol = activePlan.currencySymbol || (activePlan.currency === 'USD' ? '$' : '₹');
   const price = isAnnual ? activePlan.annualPrice : activePlan.monthlyPrice;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -151,9 +154,10 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
 
               {/* Plans Radio Cards */}
               <div className="space-y-3">
-                {PRICING_PLANS.map((plan) => {
+                {plans.map((plan) => {
                   const pPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
-                  const isSelected = selectedPlanId === plan.id;
+                  const isSelected = selectedPlanId === plan.id || selectedPlanId.toLowerCase() === plan.tier.toLowerCase();
+                  const pSymbol = plan.currencySymbol || (plan.currency === 'USD' ? '$' : '₹');
                   return (
                     <div
                       key={plan.id}
@@ -182,7 +186,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                       </div>
 
                       <div className="text-right">
-                        <span className="text-xl font-black text-slate-900 font-['Space_Grotesk']">${pPrice}</span>
+                        <span className="text-xl font-black text-slate-900 font-['Space_Grotesk']">{pSymbol}{pPrice.toLocaleString()}</span>
                         <span className="text-xs text-slate-500"> /mo</span>
                       </div>
                     </div>
@@ -196,7 +200,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                   <Truck className="w-4 h-4 text-emerald-600" />
                   <span>Free Express Stand Delivery Included with {activePlan.name}</span>
                 </div>
-                <span className="text-emerald-700 font-bold">${price}/mo</span>
+                <span className="text-emerald-700 font-bold">{symbol}{price.toLocaleString()}/mo</span>
               </div>
             </div>
           )}
@@ -361,7 +365,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                       <Lock className="w-3.5 h-3.5 text-emerald-600" />
                       Instant Plan Activation
                     </span>
-                    <span className="text-emerald-700 font-extrabold">${price}/MO</span>
+                    <span className="text-emerald-700 font-extrabold">{symbol}{price.toLocaleString()}/MO</span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     Your subscription activates immediately. Your custom stands will ship directly via FedEx Priority. No long-term lock-in contracts, cancel anytime.
