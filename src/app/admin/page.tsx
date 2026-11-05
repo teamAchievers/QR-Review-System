@@ -1402,21 +1402,21 @@ export default function MasterAdminPage() {
               background: linear-gradient(to right, ${bColor}, #4f46e5, #06b6d4);
             }
             .header-badge {
-              display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
-              border-radius: 9999px; background: #eff6ff; color: #1d4ed8; font-size: 11px;
-              font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+              display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px;
+              border-radius: 9999px; background: #eff6ff; color: #1d4ed8; font-size: 13px;
+              font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;
             }
             .logo-badge {
-              width: 58px; height: 58px; border-radius: 20px; margin: 0 auto 12px;
+              width: 64px; height: 64px; border-radius: 20px; margin: 0 auto 12px;
               display: flex; align-items: center; justify-content: center; color: #ffffff;
-              font-weight: 800; font-size: 26px;
+              font-weight: 800; font-size: 28px;
               background: linear-gradient(135deg, ${bColor}, #1d4ed8);
             }
-            h1 { font-size: 24px; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; }
-            .city { font-size: 13px; color: #64748b; margin: 4px 0 10px; font-weight: 500; }
-            .stars { color: #f59e0b; font-size: 26px; letter-spacing: 4px; margin: 8px 0; }
-            h2 { font-size: 17px; font-weight: 800; color: #1e293b; margin: 12px 0 4px; }
-            .subtitle { font-size: 12px; color: #64748b; margin: 0 0 18px; line-height: 1.4; }
+            h1 { font-size: 34px; font-weight: 900; color: #0f172a; margin: 0 0 4px; line-height: 1.2; }
+            .city { font-size: 16px; color: #64748b; margin: 2px 0 10px; font-weight: 600; }
+            .stars { color: #f59e0b; font-size: 32px; letter-spacing: 4px; margin: 6px 0; }
+            h2 { font-size: 22px; font-weight: 800; color: #1e293b; margin: 10px 0 4px; }
+            .subtitle { font-size: 15px; color: #64748b; margin: 0 0 16px; line-height: 1.4; font-weight: 500; }
             .qr-container {
               position: relative; display: inline-flex; align-items: center; justify-content: center;
               margin-bottom: 16px;
@@ -1432,10 +1432,10 @@ export default function MasterAdminPage() {
             }
             .qr-img { width: 285px; height: 285px; display: block; border-radius: 18px; }
             .nfc-badge {
-              font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe;
-              padding: 6px 16px; border-radius: 9999px; display: inline-block; margin-bottom: 6px;
+              font-size: 14px; font-weight: 700; color: #0369a1; background: #e0f2fe;
+              padding: 6px 18px; border-radius: 9999px; display: inline-block; margin-bottom: 8px;
             }
-            .brand-footer { margin-top: 22px; padding-top: 14px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; }
+            .brand-footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 13px; color: #94a3b8; }
             .brand-footer strong { color: #334155; }
           </style>
         </head>
@@ -1641,55 +1641,55 @@ export default function MasterAdminPage() {
     let gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
     let cardHeight = "135mm";
     let qrSize = "66mm";
-    let titleSize = "17px";
-    let subSize = "10.5px";
-    let badgeSize = "10px";
-    let starsSize = "18px";
-    let pillSize = "10px";
-    let pillPadding = "3px 12px";
-    let footerSize = "9.5px";
-    let cardPadding = "14px 12px 10px";
+    let titleSize = "24px";
+    let subSize = "13px";
+    let badgeSize = "12px";
+    let starsSize = "24px";
+    let pillSize = "12px";
+    let pillPadding = "4px 14px";
+    let footerSize = "11.5px";
+    let cardPadding = "12px 12px 8px";
     let isSticker = isStickerA5 || isStickerA6;
 
     if (isA5 || isStickerA5) {
-      // 2 per sheet in A4 Landscape (138mm x 196mm each)
+      // 2 per sheet in A4 Landscape (138mm x 196mm each) - Bold, prominent print typography
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
       cardHeight = "192mm";
-      qrSize = "94mm";
-      titleSize = "24px";
-      subSize = "13px";
-      badgeSize = "12px";
-      starsSize = "24px";
-      pillSize = "12.5px";
-      pillPadding = "5px 18px";
-      footerSize = "11.5px";
-      cardPadding = "22px 18px 16px";
+      qrSize = "92mm";
+      titleSize = "34px";
+      subSize = "16px";
+      badgeSize = "14px";
+      starsSize = "32px";
+      pillSize = "15px";
+      pillPadding = "6px 22px";
+      footerSize = "13px";
+      cardPadding = "16px 18px 12px";
     } else if (isTent) {
       // 2 Table-tents in A4 Landscape
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
       cardHeight = "192mm";
-      qrSize = "90mm";
-      titleSize = "22px";
-      subSize = "12.5px";
-      badgeSize = "11.5px";
-      starsSize = "22px";
-      pillSize = "12px";
-      pillPadding = "5px 16px";
-      footerSize = "11px";
-      cardPadding = "20px 16px 14px";
+      qrSize = "88mm";
+      titleSize = "32px";
+      subSize = "15px";
+      badgeSize = "14px";
+      starsSize = "30px";
+      pillSize = "15px";
+      pillPadding = "5px 20px";
+      footerSize = "13px";
+      cardPadding = "16px 16px 12px";
     } else if (isStickerA6) {
       // 4 A6 stickers in A4 portrait (2 cols x 2 rows)
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
       cardHeight = "135mm";
       qrSize = "66mm";
-      titleSize = "17px";
-      subSize = "10.5px";
-      badgeSize = "10px";
-      starsSize = "18px";
-      pillSize = "10px";
-      pillPadding = "3px 12px";
-      footerSize = "9.5px";
-      cardPadding = "14px 12px 10px";
+      titleSize = "24px";
+      subSize = "13px";
+      badgeSize = "12px";
+      starsSize = "24px";
+      pillSize = "12px";
+      pillPadding = "4px 14px";
+      footerSize = "11.5px";
+      cardPadding = "12px 12px 8px";
     }
 
     // Chunk into even-number pages so every page has exact even prints without spillover
@@ -1882,8 +1882,8 @@ export default function MasterAdminPage() {
                   : isTent
                   ? "Table-Tent Standee"
                   : isA5
-                  ? "Countertop Standee"
-                  : "Countertop Standee";
+                  ? "A5 Countertop Standee"
+                  : "A6 Acrylic Standee";
                 return `
                   <div class="standee-card">
                     <div class="accent-bar"></div>
