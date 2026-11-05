@@ -1701,18 +1701,126 @@ export default function MasterAdminPage() {
     });
   };
 
+  const renderA5CardElement = (item: any, poweredBy: string, isSticker: boolean, isTent: boolean, cardId: string) => {
+    const accentGradId = isSticker ? "stickerGradA5" : "standeeGradA5";
+    const accentColor = isSticker ? "#059669" : "#0284c7";
+    const badgeText = isSticker ? "★ REVIEW STICKER (A5) ★" : isTent ? "★ TABLE-TENT STANDEE ★" : "★ SMART REVIEW STANDEE ★";
+    const title = escapeSvgText(item.business?.name || "Review Us On Google");
+    const sub = escapeSvgText(item.business?.city || "Tap Phone or Scan Camera");
+    const tagCode = escapeSvgText(item.tagCode || "TAG-D6D6EE");
+    const clipId = `cardClipA5_${cardId}`;
+
+    // A5 Standee Card: Width = 1375, Height = 1990 (55 margin on all outer sides from 1485 x 2100)
+    return `
+      <defs>
+        <clipPath id="${clipId}">
+          <rect x="0" y="0" width="1375" height="1990" rx="55" />
+        </clipPath>
+      </defs>
+
+      <!-- Card Border & Cutting Guide (55px outer margin) -->
+      <rect x="0" y="0" width="1375" height="1990" rx="55" fill="#ffffff" stroke="#cbd5e1" stroke-width="14" stroke-dasharray="32,20" />
+
+      <!-- Top Accent Bar (clipped to rounded card) -->
+      <rect x="0" y="0" width="1375" height="48" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
+
+      <!-- Header Badge -->
+      <text x="688" y="135" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="40" font-weight="800" fill="${accentColor}" letter-spacing="3">${badgeText}</text>
+
+      <!-- Business Title (Clarity First) -->
+      <text x="688" y="238" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="78" font-weight="900" fill="#0f172a">${title}</text>
+
+      <!-- Subtitle / Location -->
+      <text x="688" y="308" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="500" fill="#64748b">${sub}</text>
+
+      <!-- 5 Gold Stars -->
+      <text x="688" y="405" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="76" fill="#f59e0b" letter-spacing="16">★★★★★</text>
+
+      <!-- Engagement Heading -->
+      <text x="688" y="488" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="800" fill="#1e293b">How Was Your Experience?</text>
+      <text x="688" y="542" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="38" font-weight="500" fill="#64748b">Tap phone here (NFC) or scan with camera</text>
+
+      <!-- QR Box Centerpiece (width 930x930, ~47% of card height) -->
+      <g transform="translate(688, 1055)">
+        <!-- Vertical Tag ID outside left of QR Box (>55 safe margin from left edge) -->
+        <text x="-525" y="0" text-anchor="middle" font-family="monospace" font-size="32" font-weight="700" fill="#94a3b8" letter-spacing="3" transform="rotate(-90 -525 0)">${tagCode}</text>
+        
+        <!-- Rounded QR Box -->
+        <rect x="-465" y="-465" width="930" height="930" rx="90" fill="#ffffff" stroke="#94a3b8" stroke-width="14" />
+        <image href="${item.qrDataUrl}" x="-425" y="-425" width="850" height="850" rx="35" preserveAspectRatio="xMidYMid meet" />
+      </g>
+
+      <!-- Instant NFC Tap Badge Pill -->
+      <g transform="translate(688, 1680)">
+        <rect x="-370" y="-54" width="740" height="108" rx="54" fill="#f0f9ff" stroke="#bae6fd" stroke-width="12" />
+        <text x="0" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="42" font-weight="700" fill="#0284c7">📲 Instant NFC Tap &amp; QR Scan • No App Needed</text>
+      </g>
+
+      <!-- Divider Line -->
+      <line x1="120" y1="1800" x2="1255" y2="1800" stroke="#e2e8f0" stroke-width="12" />
+
+      <!-- Branding Footer -->
+      <text x="688" y="1875" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="40" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
+    `;
+  };
+
+  const generateA5SheetSvg = (items: any[], poweredBy: string, isSticker: boolean, isTent: boolean): string => {
+    // Exact standard A4 Portrait sheet (2100 x 2970 tenths-of-mm = 210mm x 297mm)
+    // Fits exactly 2 A5 cards placed horizontally (rotated 90 deg counter-clockwise)
+    // 55px margin from outer sides of the QR standee design
+    // Top Half: Card 0 (translate 55, 1430 rotate -90)
+    // Bottom Half: Card 1 (translate 55, 2915 rotate -90)
+    // 1 horizontal cut across center at 1485mm yields two standard 148.5 x 210 mm A5 standees
+    let cardsSvg = "";
+
+    if (items[0]) {
+      cardsSvg += `
+      <g transform="translate(55, 1430) rotate(-90)">
+        ${renderA5CardElement(items[0], poweredBy, isSticker, isTent, "card0")}
+      </g>`;
+    }
+
+    if (items[1]) {
+      cardsSvg += `
+      <g transform="translate(55, 2915) rotate(-90)">
+        ${renderA5CardElement(items[1], poweredBy, isSticker, isTent, "card1")}
+      </g>`;
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="100%" height="auto" style="width: 100%; height: auto; display: block;">
+      <defs>
+        <linearGradient id="standeeGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#0284c7" />
+          <stop offset="50%" stop-color="#2563eb" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+        <linearGradient id="stickerGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#059669" />
+          <stop offset="50%" stop-color="#10b981" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <rect width="2100" height="2970" fill="#ffffff" />
+      
+      <!-- Center Cut Guide line between Card 1 and Card 2 (at y = 1485mm) -->
+      <line x1="20" y1="1485" x2="2080" y2="1485" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="24,16" />
+
+      ${cardsSvg}
+    </svg>`;
+  };
+
   const generateA6SheetSvg = (items: any[], poweredBy: string, isSticker: boolean): string => {
     const accentGradId = isSticker ? "stickerGradA6" : "standeeGradA6";
-    const accentColor = isSticker ? "#059669" : "#2563eb";
-    const badgeText = isSticker ? "REVIEW STICKER (A6)" : "A6 ACRYLIC STANDEE";
+    const accentColor = isSticker ? "#059669" : "#0284c7";
+    const badgeText = isSticker ? "★ REVIEW STICKER (A6) ★" : "★ A6 ACRYLIC STANDEE ★";
 
     // 4 A6 cards on A4 portrait (2100x2970 tenths-of-mm)
-    // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
+    // Equal 55 margin from outer sides of the QR standee design
     const cardsCoords = [
-      { x: 70, y: 70, id: "c0" },
-      { x: 1080, y: 70, id: "c1" },
-      { x: 70, y: 1520, id: "c2" },
-      { x: 1080, y: 1520, id: "c3" }
+      { x: 55, y: 55, id: "c0" },
+      { x: 1105, y: 55, id: "c1" },
+      { x: 55, y: 1540, id: "c2" },
+      { x: 1105, y: 1540, id: "c3" }
     ];
 
     let cardsSvg = "";
@@ -1720,65 +1828,69 @@ export default function MasterAdminPage() {
       const c = cardsCoords[idx];
       if (!c) return;
       const title = escapeSvgText(item.business?.name || "Review Us On Google");
-      const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
-      const tagCode = escapeSvgText(item.tagCode);
+      const sub = escapeSvgText(item.business?.city || "Tap Phone or Scan Camera");
+      const tagCode = escapeSvgText(item.tagCode || "TAG-D6D6EE");
 
       const clipId = `cardClipA6_${c.id}`;
       cardsSvg += `
       <g transform="translate(${c.x}, ${c.y})">
         <defs>
           <clipPath id="${clipId}">
-            <rect x="0" y="0" width="950" height="1380" rx="90" />
+            <rect x="0" y="0" width="940" height="1375" rx="55" />
           </clipPath>
         </defs>
 
-        <!-- Card Boundary & Cutting Dashed Line -->
-        <rect x="0" y="0" width="950" height="1380" rx="90" fill="#ffffff" stroke="#cbd5e1" stroke-width="14" stroke-dasharray="32,20" />
+        <!-- Card Boundary & Cutting Dashed Line (55px safe margin) -->
+        <rect x="0" y="0" width="940" height="1375" rx="55" fill="#ffffff" stroke="#cbd5e1" stroke-width="14" stroke-dasharray="32,20" />
         
         <!-- Top Accent Bar with clean rounded clip -->
-        <rect x="0" y="0" width="950" height="75" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
+        <rect x="0" y="0" width="940" height="42" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
 
         <!-- Category Badge -->
-        <text x="475" y="130" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="${accentColor}" letter-spacing="3">${badgeText}</text>
+        <text x="470" y="105" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" fill="${accentColor}" letter-spacing="3">${badgeText}</text>
 
         <!-- Business Title -->
-        <text x="475" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="58" font-weight="800" fill="#0f172a">${title}</text>
+        <text x="470" y="178" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="900" fill="#0f172a">${title}</text>
 
         <!-- Subtitle -->
-        <text x="475" y="270" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="500" fill="#64748b">${sub}</text>
+        <text x="470" y="230" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="500" fill="#64748b">${sub}</text>
 
         <!-- 5 Gold Stars -->
-        <text x="475" y="345" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="55" fill="#f59e0b" letter-spacing="12">★★★★★</text>
+        <text x="470" y="295" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="52" fill="#f59e0b" letter-spacing="12">★★★★★</text>
 
-        <!-- QR Box Centerpiece (covers ~49% of card height) -->
-        <g transform="translate(475, 750)">
-          <!-- Vertical 8px Tag ID Outside Left of QR Box -->
-          <text x="-395" y="0" text-anchor="middle" font-family="monospace" font-size="28" font-weight="700" fill="#94a3b8" letter-spacing="3" transform="rotate(-90 -395 0)">${tagCode}</text>
+        <!-- Engagement Heading -->
+        <text x="470" y="355" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="38" font-weight="800" fill="#1e293b">How Was Your Experience?</text>
+        <text x="470" y="398" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="500" fill="#64748b">Tap phone here (NFC) or scan with camera</text>
+
+        <!-- QR Box Centerpiece (covers ~47% of card height) -->
+        <g transform="translate(470, 770)">
+          <!-- Vertical Tag ID Outside Left of QR Box -->
+          <text x="-375" y="0" text-anchor="middle" font-family="monospace" font-size="26" font-weight="700" fill="#94a3b8" letter-spacing="2" transform="rotate(-90 -375 0)">${tagCode}</text>
           
           <!-- QR Wrap Outer Box -->
-          <rect x="-340" y="-340" width="680" height="680" rx="120" fill="#f8fafc" stroke="#e2e8f0" stroke-width="14" />
+          <rect x="-330" y="-330" width="660" height="660" rx="70" fill="#ffffff" stroke="#94a3b8" stroke-width="12" />
           
           <!-- High-Res QR Image -->
-          <image href="${item.qrDataUrl}" x="-310" y="-310" width="620" height="620" rx="80" preserveAspectRatio="xMidYMid meet" />
+          <image href="${item.qrDataUrl}" x="-300" y="-300" width="600" height="600" rx="25" preserveAspectRatio="xMidYMid meet" />
         </g>
 
-        <!-- NFC Action Pill -->
-        <g transform="translate(475, 1170)">
-          <rect x="-250" y="-40" width="500" height="80" rx="40" fill="#f0f9ff" stroke="#bae6fd" stroke-width="10" />
-          <text x="0" y="12" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
+        <!-- Instant NFC Tap Badge Pill -->
+        <g transform="translate(470, 1180)">
+          <rect x="-265" y="-38" width="530" height="76" rx="38" fill="#f0f9ff" stroke="#bae6fd" stroke-width="10" />
+          <text x="0" y="12" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="700" fill="#0284c7">📲 Instant NFC Tap &amp; QR Scan</text>
         </g>
 
         <!-- Footer Divider & Branding -->
-        <line x1="70" y1="1260" x2="880" y2="1260" stroke="#f1f5f9" stroke-width="10" />
-        <text x="475" y="1315" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
+        <line x1="70" y1="1260" x2="870" y2="1260" stroke="#e2e8f0" stroke-width="10" />
+        <text x="470" y="1320" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="30" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
       </g>`;
     });
 
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="100%" height="auto" style="width: 100%; height: auto; display: block;">
       <defs>
         <linearGradient id="standeeGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#2563eb" />
-          <stop offset="50%" stop-color="#4f46e5" />
+          <stop offset="0%" stop-color="#0284c7" />
+          <stop offset="50%" stop-color="#2563eb" />
           <stop offset="100%" stop-color="#06b6d4" />
         </linearGradient>
         <linearGradient id="stickerGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -1788,99 +1900,14 @@ export default function MasterAdminPage() {
         </linearGradient>
       </defs>
       <rect width="2100" height="2970" fill="#ffffff" />
+
+      <!-- Center Cut Guide lines (vertical at x=1050, horizontal at y=1485) -->
+      <line x1="1050" y1="20" x2="1050" y2="2950" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="24,16" />
+      <line x1="20" y1="1485" x2="2080" y2="1485" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="24,16" />
+
       ${cardsSvg}
     </svg>`;
   };
-
-  const generateA5SheetSvg = (items: any[], poweredBy: string, isSticker: boolean, isTent: boolean): string => {
-    const accentGradId = isSticker ? "stickerGradA5" : "standeeGradA5";
-    const accentColor = isSticker ? "#059669" : "#2563eb";
-    const badgeText = isSticker ? "REVIEW STICKER (A5)" : isTent ? "TABLE-TENT STANDEE" : "A5 COUNTERTOP STANDEE";
-
-    // 2 A5 cards on A4 landscape (2970x2100 tenths-of-mm)
-    // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
-    const cardsCoords = [
-      { x: 70, y: 70, id: "c0" },
-      { x: 1520, y: 70, id: "c1" }
-    ];
-
-    let cardsSvg = "";
-    items.slice(0, 2).forEach((item, idx) => {
-      const c = cardsCoords[idx];
-      if (!c) return;
-      const title = escapeSvgText(item.business?.name || "Review Us On Google");
-      const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
-      const tagCode = escapeSvgText(item.tagCode);
-
-      const clipId = `cardClipA5_${c.id}`;
-      cardsSvg += `
-      <g transform="translate(${c.x}, ${c.y})">
-        <defs>
-          <clipPath id="${clipId}">
-            <rect x="0" y="0" width="1380" height="1960" rx="110" />
-          </clipPath>
-        </defs>
-
-        <!-- Card Boundary & Cutting Dashed Line -->
-        <rect x="0" y="0" width="1380" height="1960" rx="110" fill="#ffffff" stroke="#cbd5e1" stroke-width="18" stroke-dasharray="40,24" />
-        
-        <!-- Top Accent Bar with clean rounded clip -->
-        <rect x="0" y="0" width="1380" height="95" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
-
-        <!-- Category Badge -->
-        <text x="690" y="150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="${accentColor}" letter-spacing="4">${badgeText}</text>
-
-        <!-- Business Title -->
-        <text x="690" y="260" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="84" font-weight="800" fill="#0f172a">${title}</text>
-
-        <!-- Subtitle -->
-        <text x="690" y="340" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="500" fill="#64748b">${sub}</text>
-
-        <!-- 5 Gold Stars -->
-        <text x="690" y="440" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="78" fill="#f59e0b" letter-spacing="16">★★★★★</text>
-
-        <!-- QR Box Centerpiece (960x960, ~49% of card height) -->
-        <g transform="translate(690, 1060)">
-          <!-- Vertical 8px Tag ID Outside Left of QR Box -->
-          <text x="-545" y="0" text-anchor="middle" font-family="monospace" font-size="36" font-weight="700" fill="#94a3b8" letter-spacing="4" transform="rotate(-90 -545 0)">${tagCode}</text>
-          
-          <!-- QR Wrap Outer Box -->
-          <rect x="-480" y="-480" width="960" height="960" rx="160" fill="#f8fafc" stroke="#e2e8f0" stroke-width="16" />
-          
-          <!-- High-Res QR Image -->
-          <image href="${item.qrDataUrl}" x="-440" y="-440" width="880" height="880" rx="120" preserveAspectRatio="xMidYMid meet" />
-        </g>
-
-        <!-- NFC Action Pill -->
-        <g transform="translate(690, 1670)">
-          <rect x="-350" y="-55" width="700" height="110" rx="55" fill="#f0f9ff" stroke="#bae6fd" stroke-width="12" />
-          <text x="0" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
-        </g>
-
-        <!-- Footer Divider & Branding -->
-        <line x1="90" y1="1800" x2="1290" y2="1800" stroke="#f1f5f9" stroke-width="12" />
-        <text x="690" y="1880" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="42" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
-      </g>`;
-    });
-
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="100%" height="auto" style="width: 100%; height: auto; display: block;">
-      <defs>
-        <linearGradient id="standeeGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#2563eb" />
-          <stop offset="50%" stop-color="#4f46e5" />
-          <stop offset="100%" stop-color="#06b6d4" />
-        </linearGradient>
-        <linearGradient id="stickerGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#059669" />
-          <stop offset="50%" stop-color="#10b981" />
-          <stop offset="100%" stop-color="#06b6d4" />
-        </linearGradient>
-      </defs>
-      <rect width="2970" height="2100" fill="#ffffff" />
-      ${cardsSvg}
-    </svg>`;
-  };
-
   const generateBatchSheetSvg = (items: any[], layout: string, poweredBy: string): string => {
     const isA5 = layout === "A5";
     const isTent = layout === "TENT";
@@ -1900,11 +1927,10 @@ export default function MasterAdminPage() {
     const isA5 = batchStandeeLayout === "A5";
     const isTent = batchStandeeLayout === "TENT";
     const isStickerA5 = batchStandeeLayout === "STICKER_A5";
-    const isLandscape = isA5 || isTent || isStickerA5;
-    const perPage = isLandscape ? 2 : 4;
-    const pageSize = isLandscape ? "A4 landscape" : "A4 portrait";
+    const perPage = isA5 || isTent || isStickerA5 ? 2 : 4;
+    const pageSize = "A4 portrait";
 
-    // Chunk into even-number pages
+    // Chunk into even-number pages (2 per sheet for A5, 4 per sheet for A6)
     const pages: any[][] = [];
     for (let i = 0; i < batchQrList.length; i += perPage) {
       pages.push(batchQrList.slice(i, i + perPage));
@@ -1912,13 +1938,13 @@ export default function MasterAdminPage() {
 
     const pagesSvg = pages.map((pageItems) => generateBatchSheetSvg(pageItems, batchStandeeLayout, poweredBy));
 
-    // Create iframe positioned outside screen with true physical A4 dimensions
+    // Create iframe with true physical A4 portrait dimensions
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.left = "-9999px";
     iframe.style.top = "0";
-    iframe.style.width = isLandscape ? "297mm" : "210mm";
-    iframe.style.height = isLandscape ? "210mm" : "297mm";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
     iframe.style.border = "0";
     iframe.style.opacity = "0";
     iframe.style.pointerEvents = "none";
@@ -1933,15 +1959,15 @@ export default function MasterAdminPage() {
       <html>
         <head>
           <title>Print - ${
-            isA5 ? "A5 Standees (2 per sheet Landscape)" :
-            isStickerA5 ? "A5 Stickers (2 per sheet Landscape)" :
-            isTent ? "Foldable Table Tents (2 per sheet Landscape)" :
-            "A6 Acrylic Standees (4 per sheet Portrait)"
+            isA5 ? "A5 Standees (2 per A4 sheet)" :
+            isStickerA5 ? "A5 Stickers (2 per A4 sheet)" :
+            isTent ? "Foldable Table Tents (2 per A4 sheet)" :
+            "A6 Acrylic Standees (4 per A4 sheet)"
           }</title>
           <style>
             @page {
-              size: ${pageSize};
-              margin: 0; /* Zero margin - SVG has built-in 7mm balanced safe print margin */
+              size: A4 portrait;
+              margin: 0; /* Zero margin - SVG has built-in 55px (5.5mm) safe print margin */
             }
             *, *::before, *::after {
               box-sizing: border-box;
@@ -1952,8 +1978,8 @@ export default function MasterAdminPage() {
               margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff;
             }
             .print-sheet-page {
-              width: ${isLandscape ? "297mm" : "210mm"};
-              height: ${isLandscape ? "210mm" : "297mm"};
+              width: 210mm;
+              height: 297mm;
               page-break-after: always;
               break-after: page;
               display: flex;
@@ -7042,7 +7068,7 @@ export default function MasterAdminPage() {
                     <div
                       className="bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden w-full mx-auto"
                       style={{
-                        maxWidth: isLandscape ? "720px" : "500px",
+                        maxWidth: "520px",
                       }}
                       dangerouslySetInnerHTML={{ __html: currentSheetSvg }}
                     />
