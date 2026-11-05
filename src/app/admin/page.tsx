@@ -960,7 +960,16 @@ export default function MasterAdminPage() {
 
   // Batch Print Sheet Modal State
   const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
-  const [batchQrList, setBatchQrList] = useState<{ tagCode: string; url: string; qrDataUrl: string }[]>([]);
+  const [batchQrList, setBatchQrList] = useState<{
+    tagCode: string;
+    url: string;
+    qrDataUrl: string;
+    type?: string;
+    status?: string;
+    business?: any;
+    label?: string | null;
+  }[]>([]);
+  const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A6" | "TENT" | "STICKER">("A6");
   const [preparingSheet, setPreparingSheet] = useState(false);
 
   const fetchTags = async (statusParam?: string, batchParam?: string, searchParam?: string) => {
@@ -1259,7 +1268,15 @@ export default function MasterAdminPage() {
     setPreparingSheet(true);
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
-      const generated: { tagCode: string; url: string; qrDataUrl: string }[] = [];
+      const generated: {
+        tagCode: string;
+        url: string;
+        qrDataUrl: string;
+        type?: string;
+        status?: string;
+        business?: any;
+        label?: string | null;
+      }[] = [];
       for (const t of listToPrint.slice(0, 48)) {
         try {
           const res = await fetch(`/api/qr/tag?tagCode=${t.tagCode}`);
@@ -1269,6 +1286,10 @@ export default function MasterAdminPage() {
               tagCode: t.tagCode,
               url: data.targetUrl || `${origin}/t/${t.tagCode}`,
               qrDataUrl: data.qrDataUrl,
+              type: t.type,
+              status: t.status,
+              business: t.business,
+              label: t.label,
             });
           }
         } catch {}
@@ -1314,6 +1335,368 @@ export default function MasterAdminPage() {
     }
   };
 
+  const handlePrintTagStandee = (tagItem: any, qrUrl: string | null) => {
+    if (!tagItem || !qrUrl) return;
+    const isAssigned = !!tagItem.business;
+    const bName = isAssigned ? tagItem.business.name : "Review Us On Google";
+    const bCity = isAssigned ? (tagItem.business.city || "") : "Tap Phone or Scan Camera";
+    const bColor = isAssigned && tagItem.business.primaryColor ? tagItem.business.primaryColor : "#2563eb";
+    const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Standee - ${tagItem.tagCode}</title>
+          <style>
+            @page { size: A5 portrait; margin: 10mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body {
+              margin: 0; padding: 24px; display: flex; justify-content: center; align-items: center;
+              min-height: 95vh; background: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            .standee-card {
+              max-width: 380px; width: 100%; border: 2.5px solid #cbd5e1; border-radius: 32px;
+              padding: 40px 28px 32px; text-align: center; position: relative; background: #ffffff; overflow: hidden;
+              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            }
+            .accent-bar {
+              position: absolute; top: 0; left: 0; right: 0; height: 12px;
+              background: linear-gradient(to right, ${bColor}, #4f46e5, #06b6d4);
+            }
+            .header-badge {
+              display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+              border-radius: 9999px; background: #eff6ff; color: #1d4ed8; font-size: 11px;
+              font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+            }
+            .logo-badge {
+              width: 58px; height: 58px; border-radius: 20px; margin: 0 auto 12px;
+              display: flex; align-items: center; justify-content: center; color: #ffffff;
+              font-weight: 800; font-size: 26px;
+              background: linear-gradient(135deg, ${bColor}, #1d4ed8);
+            }
+            h1 { font-size: 24px; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; }
+            .city { font-size: 13px; color: #64748b; margin: 4px 0 10px; font-weight: 500; }
+            .stars { color: #f59e0b; font-size: 26px; letter-spacing: 4px; margin: 8px 0; }
+            h2 { font-size: 17px; font-weight: 800; color: #1e293b; margin: 12px 0 4px; }
+            .subtitle { font-size: 12px; color: #64748b; margin: 0 0 18px; line-height: 1.4; }
+            .qr-wrap {
+              display: inline-block; padding: 12px; background: #ffffff; border: 2.5px solid #e2e8f0;
+              border-radius: 24px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            }
+            .qr-img { width: 200px; height: 200px; display: block; border-radius: 12px; }
+            .tag-pill {
+              font-family: monospace; font-size: 12px; font-weight: 800; color: #0f172a;
+              background: #f1f5f9; padding: 4px 12px; border-radius: 8px; display: inline-block;
+              border: 1px solid #cbd5e1; margin-bottom: 14px; letter-spacing: 0.05em;
+            }
+            .nfc-badge {
+              font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe;
+              padding: 6px 16px; border-radius: 9999px; display: inline-block; margin-bottom: 6px;
+            }
+            .brand-footer { margin-top: 22px; padding-top: 14px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; }
+            .brand-footer strong { color: #334155; }
+          </style>
+        </head>
+        <body>
+          <div class="standee-card">
+            <div class="accent-bar"></div>
+            ${isAssigned ? `
+              <div class="logo-badge">${bName.charAt(0)}</div>
+              <h1>${bName}</h1>
+              ${bCity ? `<div class="city">${bCity}</div>` : ""}
+            ` : `
+              <div class="header-badge">★ SMART REVIEW STANDEE ★</div>
+              <h1>Review Us On Google</h1>
+              <div class="city">Tap Phone or Scan QR Code</div>
+            `}
+            <div class="stars">★★★★★</div>
+            <h2>How Was Your Experience?</h2>
+            <div class="subtitle">Tap your phone here (NFC) or scan with camera to share your review in 15 seconds</div>
+            <div class="qr-wrap">
+              <img src="${qrUrl}" class="qr-img" alt="Scan QR Standee" />
+            </div>
+            <div>
+              <div class="tag-pill">${tagItem.tagCode}</div>
+            </div>
+            <div>
+              <span class="nfc-badge">📲 Instant Tap &amp; Scan • No App Needed</span>
+            </div>
+            <div class="brand-footer">
+              Powered by <strong>${poweredBy}</strong>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 350);
+  };
+
+  const handleDownloadStandeePng = (tagItem: any, qrUrl: string | null) => {
+    if (!tagItem || !qrUrl) return;
+    const isAssigned = !!tagItem.business;
+    const bName = isAssigned ? tagItem.business.name : "Review Us On Google";
+    const bCity = isAssigned ? (tagItem.business.city || "") : "Tap Phone or Scan Camera";
+    const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 1750;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 1200, 1750);
+
+    // Border
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 14;
+    ctx.strokeRect(36, 36, 1128, 1678);
+
+    // Accent Top Bar
+    const grad = ctx.createLinearGradient(36, 36, 1164, 36);
+    grad.addColorStop(0, "#2563eb");
+    grad.addColorStop(0.5, "#4f46e5");
+    grad.addColorStop(1, "#06b6d4");
+    ctx.fillStyle = grad;
+    ctx.fillRect(43, 43, 1114, 40);
+
+    ctx.textAlign = "center";
+
+    // Top Header / Business Name
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 56px -apple-system, sans-serif";
+    ctx.fillText(bName.slice(0, 32), 600, 210);
+
+    // Subtitle / City
+    ctx.fillStyle = "#64748b";
+    ctx.font = "500 34px -apple-system, sans-serif";
+    ctx.fillText(bCity, 600, 270);
+
+    // Five Stars
+    ctx.fillStyle = "#f59e0b";
+    ctx.font = "bold 70px -apple-system, sans-serif";
+    ctx.fillText("★ ★ ★ ★ ★", 600, 365);
+
+    // "How Was Your Experience?"
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 44px -apple-system, sans-serif";
+    ctx.fillText("How Was Your Experience?", 600, 440);
+
+    // Instructions
+    ctx.fillStyle = "#64748b";
+    ctx.font = "32px -apple-system, sans-serif";
+    ctx.fillText("Tap phone here (NFC) or scan with camera", 600, 495);
+
+    // Load QR Box
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === "function") {
+      (ctx as any).roundRect(260, 560, 680, 680, [40]);
+    } else {
+      ctx.rect(260, 560, 680, 680);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      ctx.drawImage(img, 300, 600, 600, 600);
+
+      // Monospace Tag Chip
+      ctx.fillStyle = "#f1f5f9";
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      if (typeof (ctx as any).roundRect === "function") {
+        (ctx as any).roundRect(390, 1280, 420, 70, [16]);
+      } else {
+        ctx.rect(390, 1280, 420, 70);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 34px monospace";
+      ctx.fillText(tagItem.tagCode, 600, 1328);
+
+      // NFC / Instant Tap Badge
+      ctx.fillStyle = "#e0f2fe";
+      ctx.beginPath();
+      if (typeof (ctx as any).roundRect === "function") {
+        (ctx as any).roundRect(310, 1390, 580, 75, [38]);
+      } else {
+        ctx.rect(310, 1390, 580, 75);
+      }
+      ctx.fill();
+
+      ctx.fillStyle = "#0369a1";
+      ctx.font = "bold 32px -apple-system, sans-serif";
+      ctx.fillText("📲 Instant NFC Tap & QR Scan", 600, 1440);
+
+      // Brand Footer
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(150, 1550);
+      ctx.lineTo(1050, 1550);
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "34px -apple-system, sans-serif";
+      ctx.fillText(`Powered by ${poweredBy}`, 600, 1630);
+
+      const link = document.createElement("a");
+      link.download = `Standee_${tagItem.tagCode}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = qrUrl;
+  };
+
+  const handlePrintBatchStandeeSheet = () => {
+    if (batchQrList.length === 0) return;
+    const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Batch Standees - ${batchQrList.length} Units</title>
+          <style>
+            @page { size: A4 portrait; margin: 8mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body {
+              margin: 0; padding: 0; background: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 8mm;
+              page-break-inside: auto;
+            }
+            .standee-card {
+              border: 2px dashed #94a3b8;
+              border-radius: 20px;
+              padding: 22px 16px 18px;
+              text-align: center;
+              position: relative;
+              background: #ffffff;
+              page-break-inside: avoid;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              min-height: 125mm;
+            }
+            .accent-bar {
+              position: absolute; top: 0; left: 0; right: 0; height: 8px;
+              border-radius: 20px 20px 0 0;
+              background: linear-gradient(to right, #2563eb, #4f46e5, #06b6d4);
+            }
+            .stars { color: #f59e0b; font-size: 20px; letter-spacing: 3px; margin: 4px 0; }
+            h1 { font-size: 16px; font-weight: 800; color: #0f172a; margin: 4px 0 2px; }
+            .sub { font-size: 11px; color: #64748b; margin-bottom: 8px; }
+            .qr-wrap {
+              padding: 8px; background: #ffffff; border: 2px solid #e2e8f0;
+              border-radius: 16px; margin: 4px 0;
+            }
+            .qr-img { width: 140px; height: 140px; display: block; }
+            .tag-pill {
+              font-family: monospace; font-size: 11px; font-weight: 800; color: #0f172a;
+              background: #f1f5f9; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1;
+              margin: 4px 0;
+            }
+            .nfc-badge {
+              font-size: 10px; font-weight: 700; color: #0369a1; background: #e0f2fe;
+              padding: 3px 12px; border-radius: 9999px; display: inline-block;
+            }
+            .footer { margin-top: 10px; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 6px; width: 100%; }
+            .footer strong { color: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="grid">
+            ${batchQrList.map((item) => {
+              const title = item.business?.name || "Review Us On Google";
+              const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+              return `
+                <div class="standee-card">
+                  <div class="accent-bar"></div>
+                  <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 2px;">
+                    Countertop Review Standee
+                  </div>
+                  <h1>${title}</h1>
+                  <div class="sub">${sub}</div>
+                  <div class="stars">★★★★★</div>
+                  <div class="qr-wrap">
+                    <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
+                  </div>
+                  <div class="tag-pill">${item.tagCode}</div>
+                  <div>
+                    <span class="nfc-badge">📲 Tap Phone (NFC) or Scan QR</span>
+                  </div>
+                  <div class="footer">
+                    Powered by <strong>${poweredBy}</strong>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 350);
+  };
+
   const handleExportNfcCsv = (batchFilter?: string) => {
     const listToExport = tags.filter((t) => (batchFilter && batchFilter !== "ALL" ? t.batchCode === batchFilter : true));
     if (listToExport.length === 0) {
@@ -1347,7 +1730,15 @@ export default function MasterAdminPage() {
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
       const listToRender = tags.slice(0, 48); // First 48 tags in current view
-      const generated: { tagCode: string; url: string; qrDataUrl: string }[] = [];
+      const generated: {
+        tagCode: string;
+        url: string;
+        qrDataUrl: string;
+        type?: string;
+        status?: string;
+        business?: any;
+        label?: string | null;
+      }[] = [];
 
       for (const t of listToRender) {
         try {
@@ -1358,6 +1749,10 @@ export default function MasterAdminPage() {
               tagCode: t.tagCode,
               url: data.targetUrl || `${origin}/t/${t.tagCode}`,
               qrDataUrl: data.qrDataUrl,
+              type: t.type,
+              status: t.status,
+              business: t.business,
+              label: t.label,
             });
           }
         } catch {}
@@ -3262,10 +3657,11 @@ export default function MasterAdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleViewTagQr(t)}
-                                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                                  title="View & Download QR Code"
+                                  className="py-1 px-2.5 rounded-lg bg-blue-950/60 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-700/60 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer shadow-sm"
+                                  title="View & Print Standee (QR + NFC Format)"
                                 >
                                   <QrCode className="w-3.5 h-3.5 text-blue-400" />
+                                  <span>Standee</span>
                                 </button>
 
                                 <button
@@ -5680,50 +6076,164 @@ export default function MasterAdminPage() {
         </div>
       )}
 
-      {/* ================= VIEW INDIVIDUAL TAG QR MODAL ================= */}
+      {/* ================= VIEW INDIVIDUAL TAG STANDEE MODAL ================= */}
       {singleQrModalOpen && selectedTagForQr && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 text-center shadow-2xl animate-in zoom-in-95 my-6">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-left">
               <div>
-                <h3 className="text-sm font-bold text-white">Hardware Tag QR</h3>
-                <span className="font-mono text-xs text-amber-400 font-bold">{selectedTagForQr.tagCode}</span>
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Hardware Standee &amp; QR Studio</span>
+                </h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="font-mono text-xs text-amber-400 font-bold">{selectedTagForQr.tagCode}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    selectedTagForQr.status === "ASSIGNED" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-slate-800 text-slate-300"
+                  }`}>
+                    {selectedTagForQr.status === "ASSIGNED" ? `ASSIGNED: ${selectedTagForQr.business?.name}` : "UNASSIGNED HARDWARE"}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSingleQrModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white p-1"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 bg-white rounded-2xl inline-block mx-auto mb-4 shadow-md">
-              {loadingTagQr ? (
-                <div className="w-48 h-48 flex items-center justify-center text-slate-400 text-xs">
-                  Generating QR...
+            {/* LIVE STANDEE FORMAT PREVIEW CARD */}
+            <div className="bg-white text-slate-900 rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-200 relative overflow-hidden mb-4 text-center">
+              {/* Top Accent Gradient Bar */}
+              <div
+                className="absolute top-0 left-0 right-0 h-2.5"
+                style={{
+                  background: selectedTagForQr.business?.primaryColor
+                    ? `linear-gradient(to right, ${selectedTagForQr.business.primaryColor}, #4f46e5, #06b6d4)`
+                    : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4)",
+                }}
+              />
+
+              {/* Standee Header */}
+              {selectedTagForQr.business ? (
+                <div className="mb-2">
+                  <div
+                    className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center text-white font-black text-xl shadow-md"
+                    style={{ backgroundColor: selectedTagForQr.business.primaryColor || "#2563eb" }}
+                  >
+                    {selectedTagForQr.business.name.charAt(0)}
+                  </div>
+                  <h4 className="font-black text-lg text-slate-900 leading-tight">
+                    {selectedTagForQr.business.name}
+                  </h4>
+                  {selectedTagForQr.business.city && (
+                    <p className="text-xs text-slate-500 font-medium">{selectedTagForQr.business.city}</p>
+                  )}
                 </div>
-              ) : tagQrDataUrl ? (
-                <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-48 h-48 block" />
               ) : (
-                <div className="w-48 h-48 flex items-center justify-center text-rose-500 text-xs">
-                  Error generating QR
+                <div className="mb-2">
+                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-blue-200/60 mb-2">
+                    ★ SMART REVIEW STANDEE ★
+                  </span>
+                  <h4 className="font-black text-lg text-slate-900 leading-tight">
+                    Review Us On Google
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">Tap Phone or Scan QR Code</p>
                 </div>
               )}
+
+              {/* 5 Rating Stars */}
+              <div className="text-amber-400 text-xl tracking-widest my-1 select-none">
+                ★★★★★
+              </div>
+
+              <div className="text-xs font-bold text-slate-800 mb-0.5">How Was Your Experience?</div>
+              <div className="text-[11px] text-slate-500 mb-3 max-w-xs mx-auto leading-relaxed">
+                Tap your phone here (NFC) or scan with camera to share your review
+              </div>
+
+              {/* Centerpiece QR Frame */}
+              <div className="p-3 bg-slate-50 border-2 border-slate-200/90 rounded-2xl inline-block shadow-inner relative mb-2">
+                {loadingTagQr ? (
+                  <div className="w-44 h-44 flex flex-col items-center justify-center text-slate-400 text-xs">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                    <span>Rendering QR...</span>
+                  </div>
+                ) : tagQrDataUrl ? (
+                  <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-44 h-44 block rounded-lg" />
+                ) : (
+                  <div className="w-44 h-44 flex items-center justify-center text-rose-500 text-xs">
+                    Failed to render QR
+                  </div>
+                )}
+              </div>
+
+              {/* Hardware Tag ID Chip */}
+              <div>
+                <span className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 inline-block tracking-wider">
+                  {selectedTagForQr.tagCode}
+                </span>
+              </div>
+
+              {/* Tap badge */}
+              <div className="mt-2.5">
+                <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200/60 px-3.5 py-1 rounded-full inline-block">
+                  📲 Instant NFC Tap &amp; QR Scan • No App Needed
+                </span>
+              </div>
+
+              {/* Brand Footer */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400">
+                Powered by <strong className="text-slate-700">{globalBranding.poweredByText || "Unbox Studio"}</strong>
+              </div>
             </div>
 
-            <div className="text-xs text-slate-400 mb-4 break-all font-mono bg-slate-950 p-2 rounded-xl border border-slate-800">
-              {typeof window !== "undefined" ? window.location.origin : ""}/t/{selectedTagForQr.tagCode}
+            {/* Direct URL Bar */}
+            <div className="text-[11px] text-slate-400 mb-4 break-all font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-left flex items-center justify-between gap-2">
+              <span className="truncate">{typeof window !== "undefined" ? window.location.origin : ""}/t/{selectedTagForQr.tagCode}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/t/${selectedTagForQr.tagCode}`;
+                  navigator.clipboard.writeText(url);
+                  setSuccessMsg("Copied direct NFC/QR URL to clipboard!");
+                }}
+                className="p-1 hover:text-white text-slate-400 shrink-0"
+                title="Copy URL"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            {/* STANDEE ACTION BUTTONS */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => handlePrintTagStandee(selectedTagForQr, tagQrDataUrl)}
+                className="py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Standee</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownloadStandeePng(selectedTagForQr, tagQrDataUrl)}
+                className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Standee PNG</span>
+              </button>
+
               <a
                 href={tagQrDataUrl || "#"}
-                download={`${selectedTagForQr.tagCode}_QR.png`}
-                className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+                download={`QR_${selectedTagForQr.tagCode}.png`}
+                className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-semibold border border-slate-700 flex items-center justify-center gap-1.5"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PNG</span>
+                <QrCode className="w-3.5 h-3.5 text-blue-400" />
+                <span>Raw QR Code</span>
               </a>
 
               <button
@@ -5733,7 +6243,7 @@ export default function MasterAdminPage() {
                   navigator.clipboard.writeText(url);
                   setSuccessMsg("Copied direct NFC/QR URL to clipboard!");
                 }}
-                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+                className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-semibold border border-slate-700 flex items-center justify-center gap-1.5"
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>Copy URL</span>
@@ -5743,31 +6253,65 @@ export default function MasterAdminPage() {
         </div>
       )}
 
-      {/* ================= BATCH PRINT SHEET MODAL ================= */}
+      {/* ================= BATCH PRINT STANDEE SHEET MODAL ================= */}
       {printSheetModalOpen && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl my-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 mb-6 gap-4">
               <div>
-                <h3 className="text-lg font-black tracking-tight">Printable Batch QR Sheet</h3>
+                <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <span>Printable Batch Standees &amp; Table Cards</span>
+                </h3>
                 <p className="text-xs text-slate-500">
-                  Cut-ready QR grid with Tag IDs and Unbox Studio hardware labels
+                  Cut-ready countertop review standees with hardware IDs and {globalBranding.poweredByText || "Unbox Studio"} branding
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setBatchStandeeLayout("A6")}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      batchStandeeLayout === "A6" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    A6 Acrylic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchStandeeLayout("TENT")}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      batchStandeeLayout === "TENT" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Table-Tent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchStandeeLayout("STICKER")}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      batchStandeeLayout === "STICKER" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Stickers
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"
+                  onClick={handlePrintBatchStandeeSheet}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-transform active:scale-95"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Sheet</span>
+                  <Printer className="w-4 h-4" />
+                  <span>Print Standee Sheet</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setPrintSheetModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-700"
+                  className="p-2 text-slate-400 hover:text-slate-700 rounded-lg"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -5777,27 +6321,60 @@ export default function MasterAdminPage() {
             {preparingSheet ? (
               <div className="p-16 text-center text-slate-500 text-xs">
                 <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <span>Rendering high-resolution QR codes for print sheet...</span>
+                <span>Rendering high-resolution QR standees for print sheet...</span>
               </div>
             ) : batchQrList.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-xs">No QR codes available to print.</div>
+              <div className="p-12 text-center text-slate-400 text-xs">No standees available to print.</div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[65vh] overflow-y-auto p-2">
-                {batchQrList.map((item) => (
-                  <div
-                    key={item.tagCode}
-                    className="p-3 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50/50 flex flex-col items-center justify-between"
-                  >
-                    <div className="text-[10px] font-black uppercase text-slate-800 tracking-wider mb-1">
-                      Unbox Studio
+              <div className={`grid gap-4 max-h-[65vh] overflow-y-auto p-2 ${
+                batchStandeeLayout === "TENT"
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : batchStandeeLayout === "STICKER"
+                  ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6"
+                  : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+              }`}>
+                {batchQrList.map((item) => {
+                  const title = item.business?.name || "Review Us On Google";
+                  const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+                  return (
+                    <div
+                      key={item.tagCode}
+                      className="p-4 border-2 border-dashed border-slate-300 rounded-3xl text-center bg-white shadow-sm flex flex-col items-center justify-between relative overflow-hidden transition-all hover:border-blue-400 hover:shadow-md"
+                    >
+                      {/* Top Accent Gradient Bar */}
+                      <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500" />
+
+                      <div className="w-full pt-1">
+                        <div className="text-[10px] font-black uppercase text-blue-600 tracking-wider mb-0.5">
+                          Countertop Standee
+                        </div>
+                        <h5 className="font-extrabold text-sm text-slate-900 truncate px-1">
+                          {title}
+                        </h5>
+                        <p className="text-[10px] text-slate-500 truncate mb-1">{sub}</p>
+                        <div className="text-amber-400 text-sm tracking-widest my-0.5">★★★★★</div>
+                      </div>
+
+                      <div className="my-2 p-2 bg-slate-50 border border-slate-200 rounded-2xl">
+                        <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto rounded-lg" />
+                      </div>
+
+                      <div className="w-full">
+                        <div className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 inline-block mb-1">
+                          {item.tagCode}
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full inline-block">
+                            📲 Tap NFC or Scan QR
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Powered by <strong className="text-slate-600">{globalBranding.poweredByText || "Unbox Studio"}</strong>
+                        </div>
+                      </div>
                     </div>
-                    <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto my-1" />
-                    <div className="mt-1 font-mono font-black text-xs text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                      {item.tagCode}
-                    </div>
-                    <div className="text-[9px] text-slate-400 mt-1">Tap NFC or Scan QR</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
