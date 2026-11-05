@@ -40,6 +40,7 @@ import {
   Radio,
   Cpu,
   FileText,
+  Lock,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 import { convertFromInr, convertInrToUsd, convertUsdToInr, formatCurrency, CURRENCY_METADATA, isCurrencyStrongerThanInr } from "@/lib/currency";
@@ -1421,7 +1422,11 @@ export default function MasterAdminPage() {
       const res = await fetch("/api/admin/businesses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          poweredByText: globalBranding.poweredByText || "Unbox Studio",
+          poweredByUrl: globalBranding.poweredByUrl || "https://unboxstudio.com",
+        }),
       });
 
       const data = await res.json();
@@ -1515,7 +1520,11 @@ export default function MasterAdminPage() {
       const res = await fetch(`/api/admin/businesses/${editingBusiness.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editFormData),
+        body: JSON.stringify({
+          ...editFormData,
+          poweredByText: globalBranding.poweredByText || editFormData.poweredByText || "Unbox Studio",
+          poweredByUrl: globalBranding.poweredByUrl || editFormData.poweredByUrl || "https://unboxstudio.com",
+        }),
       });
 
       const data = await res.json();
@@ -3665,34 +3674,41 @@ export default function MasterAdminPage() {
 
               {/* 4. Agency White-Label Branding */}
               <div className="pt-2 border-t border-slate-700/60">
-                <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>4. Agency &amp; White-Label &quot;Powered by&quot; Branding</span>
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>4. Agency &amp; White-Label &quot;Powered by&quot; Branding</span>
+                  </div>
+                  <span className="text-[10px] font-normal text-slate-500 flex items-center gap-1 lowercase">
+                    <Lock className="w-2.5 h-2.5 text-slate-500" /> From &quot;Powered by&quot; Branding button
+                  </span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
                       &quot;Powered by&quot; Text Label
                     </label>
                     <input
                       type="text"
-                      placeholder="Unbox Studio"
-                      value={editFormData.poweredByText}
-                      onChange={(e) => setEditFormData({ ...editFormData, poweredByText: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled
+                      readOnly
+                      value={globalBranding.poweredByText || editFormData.poweredByText || "Unbox Studio"}
+                      className="w-full text-xs p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-400 cursor-not-allowed select-none opacity-80"
+                      title="Configured globally via the 'Powered by' Branding button in the top bar"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
                       &quot;Powered by&quot; Destination URL
                     </label>
                     <input
                       type="text"
-                      placeholder="https://unboxstudio.com"
-                      value={editFormData.poweredByUrl}
-                      onChange={(e) => setEditFormData({ ...editFormData, poweredByUrl: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled
+                      readOnly
+                      value={globalBranding.poweredByUrl || editFormData.poweredByUrl || "https://unboxstudio.com"}
+                      className="w-full text-xs p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-400 cursor-not-allowed select-none opacity-80"
+                      title="Configured globally via the 'Powered by' Branding button in the top bar"
                     />
                   </div>
                 </div>
@@ -3700,7 +3716,7 @@ export default function MasterAdminPage() {
                 <div className="p-3 bg-slate-900/60 border border-slate-700/60 rounded-xl flex items-center justify-between text-xs text-slate-400">
                   <span>Client Footer Preview:</span>
                   <div className="text-slate-300">
-                    Powered by <strong className="text-white">{editFormData.poweredByText || "Unbox Studio"}</strong>
+                    Powered by <strong className="text-white">{globalBranding.poweredByText || editFormData.poweredByText || "Unbox Studio"}</strong>
                   </div>
                 </div>
               </div>
@@ -4030,25 +4046,41 @@ export default function MasterAdminPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        &quot;Powered by&quot; Label
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-400">
+                          &quot;Powered by&quot; Label
+                        </label>
+                        <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                          <Lock className="w-2.5 h-2.5 text-slate-500" />
+                          From &quot;Powered by&quot; Branding
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        value={formData.poweredByText}
-                        onChange={(e) => setFormData({ ...formData, poweredByText: e.target.value })}
-                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled
+                        readOnly
+                        value={globalBranding.poweredByText || "Unbox Studio"}
+                        className="w-full text-xs p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-400 cursor-not-allowed select-none opacity-80"
+                        title="Configured globally via the 'Powered by' Branding button"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
-                        &quot;Powered by&quot; URL
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-400">
+                          &quot;Powered by&quot; URL
+                        </label>
+                        <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                          <Lock className="w-2.5 h-2.5 text-slate-500" />
+                          From &quot;Powered by&quot; Branding
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        value={formData.poweredByUrl}
-                        onChange={(e) => setFormData({ ...formData, poweredByUrl: e.target.value })}
-                        className="w-full text-xs p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled
+                        readOnly
+                        value={globalBranding.poweredByUrl || "https://unboxstudio.com"}
+                        className="w-full text-xs p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-400 cursor-not-allowed select-none opacity-80"
+                        title="Configured globally via the 'Powered by' Branding button"
                       />
                     </div>
                   </div>
