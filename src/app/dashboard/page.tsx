@@ -127,6 +127,8 @@ export default function BusinessDashboardPage() {
     }
   }, []);
 
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string; role: string } | null>(null);
+  const [allBusinesses, setAllBusinesses] = useState<{ id: string; name: string; slug: string; city: string | null; category?: string | null }[]>([]);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState | null>(null);
   const [metrics, setMetrics] = useState({
@@ -251,14 +253,18 @@ export default function BusinessDashboardPage() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (selectedBizId?: string | unknown) => {
     try {
-      const res = await fetch("/api/dashboard/stats");
+      const bizId = typeof selectedBizId === "string" ? selectedBizId : undefined;
+      const url = bizId ? `/api/dashboard/stats?businessId=${bizId}` : "/api/dashboard/stats";
+      const res = await fetch(url);
       if (res.status === 401 || res.status === 403) {
         router.push("/login");
         return;
       }
       const data = await res.json();
+      if (data.user) setCurrentUser(data.user);
+      if (data.allBusinesses) setAllBusinesses(data.allBusinesses);
       if (data.isTripadvisorAllowed !== undefined) setIsTripadvisorAllowed(data.isTripadvisorAllowed);
       if (data.business) {
         setBusiness(data.business);
@@ -964,11 +970,23 @@ export default function BusinessDashboardPage() {
             {business.name.charAt(0)}
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-bold text-base sm:text-lg text-slate-900">{business.name}</h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                 {business.category || "Business Client"}
               </span>
+              {currentUser?.role === "FIELD_AGENT" && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-1 shadow-xs">
+                  <span>🛠️ Field Agent:</span>
+                  <span className="underline">{currentUser.name}</span>
+                </span>
+              )}
+              {currentUser?.role === "AGENT" && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-300 flex items-center gap-1 shadow-xs">
+                  <span>💼 Sales Agent:</span>
+                  <span className="underline">{currentUser.name}</span>
+                </span>
+              )}
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                   isSuspended
@@ -989,7 +1007,26 @@ export default function BusinessDashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Client Business Switcher for Field Agents & Sales Agents */}
+          {allBusinesses && allBusinesses.length > 1 && (
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Client:</span>
+              <select
+                value={business.id}
+                onChange={(e) => fetchData(e.target.value)}
+                className="text-xs bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
+                title="Switch client business"
+              >
+                {allBusinesses.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.city || "Direct"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {!isSuspended && (
             <a
               href={publicReviewUrl}

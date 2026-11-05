@@ -7,12 +7,18 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const requestedBizId = searchParams.get("businessId");
+    const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+
     let businessId = session.businessId;
-    if (!businessId && session.role === "SUPER_ADMIN") {
-      const first = await db.business.findFirst();
+    if (isElevated && requestedBizId) {
+      businessId = requestedBizId;
+    } else if (!businessId) {
+      const first = await db.business.findFirst({ orderBy: { createdAt: "desc" } });
       businessId = first?.id || null;
     }
 
@@ -58,57 +64,67 @@ export async function POST(req: NextRequest) {
           finalPrice = Math.max(0, finalPrice - appliedDiscount);
 
           await db.coupon.update({
-            where: { code: c.code },
+            where: { id: c.id },
             data: { usedCount: { increment: 1 } },
-          }).catch(() => {});
+          });
         }
       }
     }
 
-    const orderNotes = [
-      courierNotes,
-      validCode ? `[Coupon: ${validCode}, Saved ₹${appliedDiscount}]` : null,
-    ].filter(Boolean).join(" ");
-
     const order = await db.standeeOrder.create({
       data: {
         businessId,
-        contactName,
-        contactPhone,
-        shippingAddress,
-        city: city || "",
-        postalCode: postalCode || "",
-        standeeType,
-        quantity: Number(quantity) || 1,
+        contactName: contactName.trim(),
+        contactPhone: contactPhone.trim(),
+        shippingAddress: shippingAddress.trim(),
+        city: city ? city.trim() : null,
+        postalCode: postalCode ? postalCode.trim() : null,
+        standeeType: standeeType || "ACRYLIC_A6",
+        quantity: Math.max(1, Number(quantity) || 1),
         totalPrice: finalPrice,
         status: "PENDING",
-        courierNotes: orderNotes,
+        courierNotes: courierNotes ? courierNotes.trim() : (validCode ? `Used promo code: ${validCode} (-₹${appliedDiscount})` : null),
+      },
+      include: {
+        business: {
+          select: { name: true, slug: true },
+        },
       },
     });
 
-    return NextResponse.json({ success: true, order, discountAmount: appliedDiscount, finalPrice });
+    return NextResponse.json({
+      success: true,
+      message: "Order placed successfully! We will prepare and dispatch your standees.",
+      order,
+    });
   } catch (err: any) {
-    console.error("Standee order error:", err);
+    console.error("Create standee order error:", err);
     return NextResponse.json({ error: "Failed to place standee order" }, { status: 500 });
   }
 }
 
-// GET: Retrieve past orders for this business
-export async function GET() {
+// GET: Fetch order history for the authenticated business
+export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const requestedBizId = searchParams.get("businessId");
+    const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+
     let businessId = session.businessId;
-    if (!businessId && session.role === "SUPER_ADMIN") {
-      const first = await db.business.findFirst();
+    if (isElevated && requestedBizId) {
+      businessId = requestedBizId;
+    } else if (!businessId) {
+      const first = await db.business.findFirst({ orderBy: { createdAt: "desc" } });
       businessId = first?.id || null;
     }
 
     if (!businessId) {
-      return NextResponse.json({ error: "No business found" }, { status: 404 });
+      return NextResponse.json({ orders: [] });
     }
 
     const orders = await db.standeeOrder.findMany({
@@ -118,7 +134,7 @@ export async function GET() {
 
     return NextResponse.json({ orders });
   } catch (err: any) {
-    console.error("Get standee orders error:", err);
+    console.error("Fetch orders error:", err);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }

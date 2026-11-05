@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const requestedBizId = searchParams.get("businessId");
+  const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+
   let businessId = session.businessId;
-  if (!businessId && session.role === "SUPER_ADMIN") {
-    const first = await db.business.findFirst();
+  if (isElevated && requestedBizId) {
+    businessId = requestedBizId;
+  } else if (!businessId) {
+    const first = await db.business.findFirst({ orderBy: { createdAt: "desc" } });
     businessId = first?.id || null;
   }
 
@@ -29,12 +35,18 @@ export async function PUT(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const requestedBizId = searchParams.get("businessId");
+    const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+
     let businessId = session.businessId;
-    if (!businessId && session.role === "SUPER_ADMIN") {
-      const first = await db.business.findFirst();
+    if (isElevated && requestedBizId) {
+      businessId = requestedBizId;
+    } else if (!businessId) {
+      const first = await db.business.findFirst({ orderBy: { createdAt: "desc" } });
       businessId = first?.id || null;
     }
 
@@ -72,22 +84,22 @@ export async function PUT(req: NextRequest) {
         ...(phone !== undefined && { phone: phone?.trim() || null }),
         ...(email !== undefined && { email: email?.trim() || null }),
         ...(logoUrl !== undefined && { logoUrl: logoUrl?.trim() || null }),
-        ...(googleReviewUrl !== undefined && { googleReviewUrl: googleReviewUrl.trim() }),
+        ...(googleReviewUrl && { googleReviewUrl: googleReviewUrl.trim() }),
         ...(tripadvisorReviewUrl !== undefined && { tripadvisorReviewUrl: tripadvisorReviewUrl?.trim() || null }),
-        ...(reviewPlatform !== undefined && { reviewPlatform }),
+        ...(reviewPlatform && { reviewPlatform }),
         ...(googlePlaceId !== undefined && { googlePlaceId: googlePlaceId?.trim() || null }),
-        ...(keywords !== undefined && { keywords: keywords.trim() }),
-        ...(targetTone !== undefined && { targetTone: targetTone.trim() }),
+        ...(keywords !== undefined && { keywords }),
+        ...(targetTone !== undefined && { targetTone }),
         ...(minGoogleStar !== undefined && { minGoogleStar: Number(minGoogleStar) }),
-        ...(primaryColor !== undefined && { primaryColor }),
-        ...(poweredByText !== undefined && { poweredByText: poweredByText?.trim() || "Unbox Studio" }),
-        ...(poweredByUrl !== undefined && { poweredByUrl: poweredByUrl?.trim() || "https://unboxstudio.com" }),
+        ...(primaryColor && { primaryColor }),
+        ...(poweredByText !== undefined && { poweredByText: poweredByText?.trim() || null }),
+        ...(poweredByUrl !== undefined && { poweredByUrl: poweredByUrl?.trim() || null }),
       },
     });
 
     return NextResponse.json({ success: true, business: updated });
   } catch (err: any) {
-    console.error("Update settings error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("PUT /api/dashboard/settings error:", err);
+    return NextResponse.json({ error: "Failed to update business profile" }, { status: 500 });
   }
 }

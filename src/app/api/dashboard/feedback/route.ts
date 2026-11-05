@@ -2,20 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const requestedBizId = searchParams.get("businessId");
+  const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+
   let businessId = session.businessId;
-  if (!businessId && session.role === "SUPER_ADMIN") {
-    const first = await db.business.findFirst();
+  if (isElevated && requestedBizId) {
+    businessId = requestedBizId;
+  } else if (!businessId) {
+    const first = await db.business.findFirst({ orderBy: { createdAt: "desc" } });
     businessId = first?.id || null;
   }
 
   if (!businessId) {
-    return NextResponse.json({ error: "No business found" }, { status: 404 });
+    return NextResponse.json({ feedbacks: [] });
   }
 
   const feedbacks = await db.feedback.findMany({
@@ -30,7 +36,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { feedbackId, status, internalNotes } = await req.json();
@@ -49,7 +55,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true, feedback: updated });
   } catch (err: any) {
-    console.error("Update feedback error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("PATCH /api/dashboard/feedback error:", err);
+    return NextResponse.json({ error: "Failed to update feedback" }, { status: 500 });
   }
 }
