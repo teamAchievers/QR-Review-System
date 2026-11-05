@@ -1444,16 +1444,17 @@ export default function MasterAdminPage() {
       </header>
 
       {/* Admin Module Tabs */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-x-auto">
-          <div className="flex items-center gap-2">
+      <div className="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-2.5">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Scrollable Tab Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
             {[
               { id: "BUSINESSES", label: "Businesses & QR Profiles", icon: Building2, count: businesses.length },
               { id: "PLANS", label: "Plans & Pricing", icon: Layers, count: plans.length },
               { id: "COUPONS", label: "Coupon Codes", icon: Tag, count: coupons.length },
               { id: "OFFERS", label: "Promotions & Offers", icon: Sparkles, count: offers.length },
               { id: "PAYMENTS", label: "Payment Gateway", icon: CreditCard, count: paymentConfig.enabled ? (paymentConfig.mode === "LIVE" ? "LIVE" : "TEST") : "OFF" },
-              { id: "TAGS", label: "Hardware & Bulk QR", icon: Cpu, count: `${tagStats.unassigned} In Stock` },
+              { id: "TAGS", label: "NFC & Bulk QR", icon: Cpu, count: `${tagStats.unassigned} In Stock` },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = adminTab === tab.id;
@@ -1461,7 +1462,7 @@ export default function MasterAdminPage() {
                 <button
                   key={tab.id}
                   onClick={() => setAdminTab(tab.id as any)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
                     isActive
                       ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
                       : "bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800"
@@ -1480,11 +1481,11 @@ export default function MasterAdminPage() {
           </div>
 
           {/* Quick Action according to active tab */}
-          <div>
+          <div className="shrink-0 self-start md:self-auto">
             {adminTab === "PLANS" && (
               <button
                 onClick={handleOpenCreatePlan}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add New Plan</span>
@@ -1493,7 +1494,7 @@ export default function MasterAdminPage() {
             {adminTab === "COUPONS" && (
               <button
                 onClick={handleOpenCreateCoupon}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Create Coupon</span>
@@ -1502,41 +1503,20 @@ export default function MasterAdminPage() {
             {adminTab === "OFFERS" && (
               <button
                 onClick={handleOpenCreateOffer}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Generate Offer</span>
               </button>
             )}
-
             {adminTab === "TAGS" && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePreparePrintSheet}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
-                  title="Print cut-ready batch of QR codes"
-                >
-                  <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Print QR Sheet</span>
-                </button>
-
-                <button
-                  onClick={() => handleExportNfcCsv(selectedTagBatch)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
-                  title="Download list of direct URLs for NFC tag writers"
-                >
-                  <Download className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Export NFC CSV</span>
-                </button>
-
-                <button
-                  onClick={handleOpenBatchModal}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Generate Batch</span>
-                </button>
-              </div>
+              <button
+                onClick={handleOpenBatchModal}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Mint New Batch</span>
+              </button>
             )}
           </div>
         </div>
@@ -2707,6 +2687,317 @@ export default function MasterAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* ================= HARDWARE & BULK QR STUDIO TAB ================= */}
+        {adminTab === "TAGS" && (
+          <div className="space-y-6">
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-medium">Total Hardware</span>
+                  <Cpu className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="text-2xl font-black text-white">{tagStats.total}</div>
+                <p className="text-[11px] text-slate-500 mt-1">Pre-minted QR &amp; NFC units</p>
+              </div>
+
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-medium">In Stock (Unassigned)</span>
+                  <Tag className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-2xl font-black text-amber-400">{tagStats.unassigned}</div>
+                <p className="text-[11px] text-slate-500 mt-1">Ready for field deployment</p>
+              </div>
+
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-medium">Active in Field</span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl font-black text-emerald-400">{tagStats.assigned}</div>
+                <p className="text-[11px] text-slate-500 mt-1">Linked to active businesses</p>
+              </div>
+
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-medium">Customer Taps &amp; Scans</span>
+                  <Radio className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl font-black text-blue-400">{tagStats.totalScans}</div>
+                <p className="text-[11px] text-slate-500 mt-1">Total physical interactions</p>
+              </div>
+            </div>
+
+            {/* Inventory Controls, Search, and Action Toolbar */}
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3 flex-1">
+                {/* Search */}
+                <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search Tag Code, Batch, Business..."
+                    value={tagSearch}
+                    onChange={(e) => {
+                      setTagSearch(e.target.value);
+                      fetchTags(undefined, undefined, e.target.value);
+                    }}
+                    className="w-full text-xs pl-8 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Batch Filter */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span>Batch:</span>
+                  <select
+                    value={selectedTagBatch}
+                    onChange={(e) => {
+                      setSelectedTagBatch(e.target.value);
+                      fetchTags(undefined, e.target.value, undefined);
+                    }}
+                    className="text-xs p-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">All Batches</option>
+                    {tagBatches.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1 p-0.5 bg-slate-900 rounded-xl border border-slate-700 text-[11px]">
+                  {[
+                    { id: "ALL", label: "All" },
+                    { id: "UNASSIGNED", label: "In Stock" },
+                    { id: "ASSIGNED", label: "Active" },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTagStatus(s.id);
+                        fetchTags(s.id, undefined, undefined);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                        selectedTagStatus === s.id
+                          ? "bg-blue-600 text-white"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Toolbar with Print Sheet, Export NFC, and Mint Batch */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handlePreparePrintSheet}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  title="Print cut-ready batch of QR codes"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Print QR Sheet</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportNfcCsv(selectedTagBatch)}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  title="Download list of direct URLs for NFC tag writers"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export NFC CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenBatchModal}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Mint New Batch</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Inventory Table */}
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl overflow-hidden shadow-sm">
+              {loadingTags ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <span>Loading hardware tags...</span>
+                </div>
+              ) : tags.length === 0 ? (
+                <div className="p-12 text-center text-slate-400">
+                  <Cpu className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                  <h4 className="text-sm font-bold text-white mb-1">No Hardware Tags in Current View</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+                    Click &quot;Mint New Batch&quot; to generate unassigned bulk QR and NFC codes ready for physical printing.
+                  </p>
+                  <button
+                    onClick={handleOpenBatchModal}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md cursor-pointer"
+                  >
+                    Generate First Batch
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700/80 uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Tag Serial Code</th>
+                        <th className="py-3 px-4">Batch &amp; Type</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Linked Business / Placement</th>
+                        <th className="py-3 px-4 text-center">Taps / Scans</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {tags.map((t) => {
+                        const origin = typeof window !== "undefined" ? window.location.origin : "";
+                        const directUrl = `${origin}/t/${t.tagCode}`;
+                        return (
+                          <tr key={t.id} className="hover:bg-slate-700/30 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-white">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-blue-300 font-bold">
+                                  {t.tagCode}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(directUrl);
+                                    setSuccessMsg(`Copied NFC/QR URL for ${t.tagCode}`);
+                                  }}
+                                  className="text-slate-500 hover:text-white cursor-pointer"
+                                  title="Copy NFC Direct URL"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-slate-200">{t.batchCode}</div>
+                              <div className="text-[10px] text-slate-400">
+                                {t.type === "QR_NFC"
+                                  ? "Dual Standee (NFC + QR)"
+                                  : t.type === "NFC_CARD"
+                                  ? "Pocket NFC Review Card"
+                                  : t.type === "QR_STAND"
+                                  ? "Pure QR Standee"
+                                  : "Epoxy NFC Coin"}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {t.status === "ASSIGNED" ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle className="w-3 h-3" />
+                                  <span>ACTIVE IN FIELD</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                                  <Tag className="w-3 h-3" />
+                                  <span>IN STOCK (BLANK)</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {t.business ? (
+                                <div>
+                                  <div className="font-bold text-white flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                                    <span>{t.business.name}</span>
+                                    <a
+                                      href={`/r/${t.business.slug}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-slate-500 hover:text-blue-400"
+                                      title="Test customer review funnel"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span>{t.business.city || "Client"}</span>
+                                    {t.label && (
+                                      <span className="text-slate-300 font-medium bg-slate-900 px-1.5 py-0.2 rounded border border-slate-700">
+                                        📍 {t.label}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-slate-500 italic text-[11px]">
+                                  Unassigned — Scan to feed client data
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 text-center font-bold font-mono text-slate-300">
+                              {t.scanCount || 0}
+                            </td>
+
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewTagQr(t)}
+                                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                                  title="View & Download QR Code"
+                                >
+                                  <QrCode className="w-3.5 h-3.5 text-blue-400" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAssignModal(t)}
+                                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                                  title={t.business ? "Reassign to another business" : "Bind to a business"}
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-emerald-400" />
+                                </button>
+
+                                {t.business && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnlinkTag(t)}
+                                    className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 transition-colors cursor-pointer"
+                                    title="Unlink tag back to stock"
+                                  >
+                                    <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTag(t)}
+                                  className="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors cursor-pointer"
+                                  title="Delete Tag"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
