@@ -37,6 +37,9 @@ import {
   Printer,
   Download,
   Star,
+  Radio,
+  Cpu,
+  FileText,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 import { convertFromInr, convertInrToUsd, convertUsdToInr, formatCurrency, CURRENCY_METADATA, isCurrencyStrongerThanInr } from "@/lib/currency";
@@ -173,9 +176,9 @@ export default function MasterAdminPage() {
   };
 
   // Admin Navigation Tab State with URL & LocalStorage persistence
-  const [adminTab, setAdminTabState] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS">("BUSINESSES");
+  const [adminTab, setAdminTabState] = useState<"BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS" | "TAGS">("BUSINESSES");
 
-  const setAdminTab = useCallback((tab: "BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS") => {
+  const setAdminTab = useCallback((tab: "BUSINESSES" | "PLANS" | "COUPONS" | "OFFERS" | "PAYMENTS" | "TAGS") => {
     setAdminTabState(tab);
     if (typeof window !== "undefined") {
       try {
@@ -192,7 +195,7 @@ export default function MasterAdminPage() {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const urlTab = searchParams.get("tab")?.toUpperCase();
-      const validTabs = ["BUSINESSES", "PLANS", "COUPONS", "OFFERS", "PAYMENTS"];
+      const validTabs = ["BUSINESSES", "PLANS", "COUPONS", "OFFERS", "PAYMENTS", "TAGS"];
 
       if (urlTab && validTabs.includes(urlTab)) {
         setAdminTabState(urlTab as any);
@@ -908,6 +911,249 @@ export default function MasterAdminPage() {
     adminPassword: "",
   });
 
+  // ==========================================
+  // HARDWARE TAGS & BULK QR STATE & HANDLERS
+  // ==========================================
+  const [tags, setTags] = useState<any[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [tagStats, setTagStats] = useState({ total: 0, unassigned: 0, assigned: 0, totalScans: 0 });
+  const [tagBatches, setTagBatches] = useState<string[]>([]);
+  const [selectedTagBatch, setSelectedTagBatch] = useState("ALL");
+  const [selectedTagStatus, setSelectedTagStatus] = useState("ALL");
+  const [tagSearch, setTagSearch] = useState("");
+
+  // Batch Generation Modal State
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [generatingBatch, setGeneratingBatch] = useState(false);
+  const [batchForm, setBatchForm] = useState({
+    batchCode: `BATCH-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+    count: 25,
+    type: "QR_NFC",
+    prefix: "TAG-",
+  });
+
+  // Assign Modal State
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [tagToAssign, setTagToAssign] = useState<any | null>(null);
+  const [assignBusinessId, setAssignBusinessId] = useState("");
+  const [assignLabel, setAssignLabel] = useState("");
+  const [savingAssign, setSavingAssign] = useState(false);
+
+  // Single QR View Modal State
+  const [singleQrModalOpen, setSingleQrModalOpen] = useState(false);
+  const [selectedTagForQr, setSelectedTagForQr] = useState<any | null>(null);
+  const [tagQrDataUrl, setTagQrDataUrl] = useState<string | null>(null);
+  const [loadingTagQr, setLoadingTagQr] = useState(false);
+
+  // Batch Print Sheet Modal State
+  const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
+  const [batchQrList, setBatchQrList] = useState<{ tagCode: string; url: string; qrDataUrl: string }[]>([]);
+  const [preparingSheet, setPreparingSheet] = useState(false);
+
+  const fetchTags = async (statusParam?: string, batchParam?: string, searchParam?: string) => {
+    setLoadingTags(true);
+    try {
+      const qStatus = statusParam !== undefined ? statusParam : selectedTagStatus;
+      const qBatch = batchParam !== undefined ? batchParam : selectedTagBatch;
+      const qSearch = searchParam !== undefined ? searchParam : tagSearch;
+
+      const params = new URLSearchParams();
+      if (qStatus && qStatus !== "ALL") params.set("status", qStatus);
+      if (qBatch && qBatch !== "ALL") params.set("batchCode", qBatch);
+      if (qSearch && qSearch.trim()) params.set("search", qSearch.trim());
+
+      const res = await fetch(`/api/admin/tags?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTags(data.tags || []);
+        if (data.stats) setTagStats(data.stats);
+        if (data.batches) setTagBatches(data.batches);
+      }
+    } catch (e) {
+      console.warn("Could not fetch tags:", e);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
+  const handleOpenBatchModal = () => {
+    setBatchForm({
+      batchCode: `BATCH-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+      count: 25,
+      type: "QR_NFC",
+      prefix: "TAG-",
+    });
+    setBatchModalOpen(true);
+  };
+
+  const handleGenerateBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGeneratingBatch(true);
+    try {
+      const res = await fetch("/api/admin/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(batchForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBatchModalOpen(false);
+        setSuccessMsg(data.message || "Batch generated successfully!");
+        fetchTags();
+      } else {
+        alert(data.error || "Failed to generate batch");
+      }
+    } catch {
+      alert("Error generating bulk tags");
+    } finally {
+      setGeneratingBatch(false);
+    }
+  };
+
+  const handleOpenAssignModal = (tagItem: any) => {
+    setTagToAssign(tagItem);
+    setAssignBusinessId(tagItem.businessId || (businesses[0]?.id || ""));
+    setAssignLabel(tagItem.label || "");
+    setAssignModalOpen(true);
+  };
+
+  const handleSaveTagAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tagToAssign) return;
+    setSavingAssign(true);
+    try {
+      const res = await fetch("/api/admin/tags", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: tagToAssign.id,
+          businessId: assignBusinessId,
+          label: assignLabel,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAssignModalOpen(false);
+        setSuccessMsg(`Tag ${tagToAssign.tagCode} successfully bound to ${data.tag?.business?.name || "business"}!`);
+        fetchTags();
+      } else {
+        alert(data.error || "Failed to assign tag");
+      }
+    } catch {
+      alert("Error assigning tag");
+    } finally {
+      setSavingAssign(false);
+    }
+  };
+
+  const handleUnlinkTag = async (tagItem: any) => {
+    if (!confirm(`Are you sure you want to unlink ${tagItem.tagCode}? It will become an unassigned blank standee again.`)) return;
+    try {
+      const res = await fetch("/api/admin/tags", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: tagItem.id, businessId: null }),
+      });
+      if (res.ok) {
+        setSuccessMsg(`Tag ${tagItem.tagCode} unlinked and returned to inventory stock.`);
+        fetchTags();
+      } else {
+        alert("Failed to unlink tag");
+      }
+    } catch {
+      alert("Error unlinking tag");
+    }
+  };
+
+  const handleDeleteTag = async (tagItem: any) => {
+    if (!confirm(`Permanently delete tag ${tagItem.tagCode}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/admin/tags?id=${tagItem.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuccessMsg(`Tag ${tagItem.tagCode} deleted.`);
+        fetchTags();
+      } else {
+        alert("Failed to delete tag");
+      }
+    } catch {
+      alert("Error deleting tag");
+    }
+  };
+
+  const handleViewTagQr = async (tagItem: any) => {
+    setSelectedTagForQr(tagItem);
+    setSingleQrModalOpen(true);
+    setLoadingTagQr(true);
+    setTagQrDataUrl(null);
+    try {
+      const res = await fetch(`/api/qr/tag?tagCode=${tagItem.tagCode}`);
+      const data = await res.json();
+      if (res.ok && data.qrDataUrl) {
+        setTagQrDataUrl(data.qrDataUrl);
+      }
+    } catch (e) {
+      console.warn("Could not fetch QR:", e);
+    } finally {
+      setLoadingTagQr(false);
+    }
+  };
+
+  const handleExportNfcCsv = (batchFilter?: string) => {
+    const listToExport = tags.filter((t) => (batchFilter && batchFilter !== "ALL" ? t.batchCode === batchFilter : true));
+    if (listToExport.length === 0) {
+      alert("No hardware tags found to export.");
+      return;
+    }
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
+    const csvHeaders = ["TagCode", "Type", "BatchCode", "Status", "AssignedBusiness", "PlacementLabel", "DirectNfcUrl"];
+    const rows = listToExport.map((t) => [
+      t.tagCode,
+      t.type,
+      t.batchCode,
+      t.status,
+      t.business ? `"${t.business.name.replace(/"/g, '""')}"` : "UNASSIGNED",
+      t.label ? `"${t.label.replace(/"/g, '""')}"` : "",
+      `${origin}/t/${t.tagCode}`,
+    ]);
+    const csvContent = [csvHeaders.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `NFC_Tags_${batchFilter && batchFilter !== "ALL" ? batchFilter : "All"}_Export.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePreparePrintSheet = async () => {
+    setPrintSheetModalOpen(true);
+    setPreparingSheet(true);
+    try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
+      const listToRender = tags.slice(0, 48); // First 48 tags in current view
+      const generated: { tagCode: string; url: string; qrDataUrl: string }[] = [];
+
+      for (const t of listToRender) {
+        try {
+          const res = await fetch(`/api/qr/tag?tagCode=${t.tagCode}`);
+          const data = await res.json();
+          if (data.qrDataUrl) {
+            generated.push({
+              tagCode: t.tagCode,
+              url: data.targetUrl || `${origin}/t/${t.tagCode}`,
+              qrDataUrl: data.qrDataUrl,
+            });
+          }
+        } catch {}
+      }
+      setBatchQrList(generated);
+    } catch {
+      alert("Error preparing printable batch sheet");
+    } finally {
+      setPreparingSheet(false);
+    }
+  };
+
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/stats");
@@ -1207,6 +1453,7 @@ export default function MasterAdminPage() {
               { id: "COUPONS", label: "Coupon Codes", icon: Tag, count: coupons.length },
               { id: "OFFERS", label: "Promotions & Offers", icon: Sparkles, count: offers.length },
               { id: "PAYMENTS", label: "Payment Gateway", icon: CreditCard, count: paymentConfig.enabled ? (paymentConfig.mode === "LIVE" ? "LIVE" : "TEST") : "OFF" },
+              { id: "TAGS", label: "Hardware & Bulk QR", icon: Cpu, count: `${tagStats.unassigned} In Stock` },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = adminTab === tab.id;
@@ -1260,6 +1507,36 @@ export default function MasterAdminPage() {
                 <Plus className="w-3.5 h-3.5" />
                 <span>Generate Offer</span>
               </button>
+            )}
+
+            {adminTab === "TAGS" && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePreparePrintSheet}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                  title="Print cut-ready batch of QR codes"
+                >
+                  <Printer className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Print QR Sheet</span>
+                </button>
+
+                <button
+                  onClick={() => handleExportNfcCsv(selectedTagBatch)}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                  title="Download list of direct URLs for NFC tag writers"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export NFC CSV</span>
+                </button>
+
+                <button
+                  onClick={handleOpenBatchModal}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Generate Batch</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -4323,6 +4600,310 @@ export default function MasterAdminPage() {
         </div>
       )}
 
-    </div>
+    
+      {/* ================= BULK BATCH GENERATOR MODAL ================= */}
+      {batchModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-blue-400" />
+                  <span>Generate Hardware Batch</span>
+                </h3>
+                <p className="text-xs text-slate-400">Mint blank pre-manufactured QR &amp; NFC standees</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBatchModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGenerateBatch} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Batch Code / Name</label>
+                <input
+                  type="text"
+                  required
+                  value={batchForm.batchCode}
+                  onChange={(e) => setBatchForm({ ...batchForm, batchCode: e.target.value.toUpperCase() })}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Hardware / Standee Type</label>
+                <select
+                  value={batchForm.type}
+                  onChange={(e) => setBatchForm({ ...batchForm, type: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="QR_NFC">Dual Countertop Standee (NFC + QR Code)</option>
+                  <option value="NFC_CARD">Pocket NFC Review Card (Credit Card Format)</option>
+                  <option value="QR_STAND">Pure High-Resolution QR Table Tent</option>
+                  <option value="NFC_COIN">Epoxy NFC Coin / Countertop Disk</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Serial Prefix</label>
+                  <input
+                    type="text"
+                    required
+                    value={batchForm.prefix}
+                    onChange={(e) => setBatchForm({ ...batchForm, prefix: e.target.value.toUpperCase() })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Units to Mint</label>
+                  <select
+                    value={batchForm.count}
+                    onChange={(e) => setBatchForm({ ...batchForm, count: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10 Units</option>
+                    <option value={25}>25 Units</option>
+                    <option value={50}>50 Units</option>
+                    <option value={100}>100 Units</option>
+                    <option value={200}>200 Units</option>
+                    <option value={500}>500 Units</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBatchModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={generatingBatch}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  {generatingBatch ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Mint {batchForm.count} Units</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MANUALLY ASSIGN / REASSIGN TAG MODAL ================= */}
+      {assignModalOpen && tagToAssign && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-emerald-400" />
+                  <span>Bind Hardware Standee</span>
+                </h3>
+                <p className="text-xs text-slate-400">Tag Code: <span className="font-mono text-amber-400">{tagToAssign.tagCode}</span></p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTagAssignment} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Select Business Client *</label>
+                <select
+                  value={assignBusinessId}
+                  onChange={(e) => setAssignBusinessId(e.target.value)}
+                  required
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="">-- Choose Business --</option>
+                  {businesses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.city || "India"}) — /r/{b.slug}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Placement Label (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Table 4, Reception Desk, Bar Counter"
+                  value={assignLabel}
+                  onChange={(e) => setAssignLabel(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOpen(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAssign || !assignBusinessId}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  {savingAssign ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>Save Assignment</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= VIEW INDIVIDUAL TAG QR MODAL ================= */}
+      {singleQrModalOpen && selectedTagForQr && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-left">
+              <div>
+                <h3 className="text-sm font-bold text-white">Hardware Tag QR</h3>
+                <span className="font-mono text-xs text-amber-400 font-bold">{selectedTagForQr.tagCode}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSingleQrModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-white rounded-2xl inline-block mx-auto mb-4 shadow-md">
+              {loadingTagQr ? (
+                <div className="w-48 h-48 flex items-center justify-center text-slate-400 text-xs">
+                  Generating QR...
+                </div>
+              ) : tagQrDataUrl ? (
+                <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-48 h-48 block" />
+              ) : (
+                <div className="w-48 h-48 flex items-center justify-center text-rose-500 text-xs">
+                  Error generating QR
+                </div>
+              )}
+            </div>
+
+            <div className="text-xs text-slate-400 mb-4 break-all font-mono bg-slate-950 p-2 rounded-xl border border-slate-800">
+              {typeof window !== "undefined" ? window.location.origin : ""}/t/{selectedTagForQr.tagCode}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={tagQrDataUrl || "#"}
+                download={`${selectedTagForQr.tagCode}_QR.png`}
+                className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PNG</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/t/${selectedTagForQr.tagCode}`;
+                  navigator.clipboard.writeText(url);
+                  setSuccessMsg("Copied direct NFC/QR URL to clipboard!");
+                }}
+                className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy URL</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BATCH PRINT SHEET MODAL ================= */}
+      {printSheetModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+              <div>
+                <h3 className="text-lg font-black tracking-tight">Printable Batch QR Sheet</h3>
+                <p className="text-xs text-slate-500">
+                  Cut-ready QR grid with Tag IDs and Unbox Studio hardware labels
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Sheet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintSheetModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {preparingSheet ? (
+              <div className="p-16 text-center text-slate-500 text-xs">
+                <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <span>Rendering high-resolution QR codes for print sheet...</span>
+              </div>
+            ) : batchQrList.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-xs">No QR codes available to print.</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[65vh] overflow-y-auto p-2">
+                {batchQrList.map((item) => (
+                  <div
+                    key={item.tagCode}
+                    className="p-3 border-2 border-dashed border-slate-300 rounded-2xl text-center bg-slate-50/50 flex flex-col items-center justify-between"
+                  >
+                    <div className="text-[10px] font-black uppercase text-slate-800 tracking-wider mb-1">
+                      Unbox Studio
+                    </div>
+                    <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto my-1" />
+                    <div className="mt-1 font-mono font-black text-xs text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {item.tagCode}
+                    </div>
+                    <div className="text-[9px] text-slate-400 mt-1">Tap NFC or Scan QR</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+</div>
   );
 }

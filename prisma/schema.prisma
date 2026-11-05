@@ -64,6 +64,7 @@ model Business {
   feedbacks       Feedback[]
   scanLogs        ScanLog[]
   standeeOrders   StandeeOrder[]
+  smartTags       SmartTag[]
 }
 
 model StandeeOrder {
@@ -161,4 +162,26 @@ model Offer {
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+}
+
+
+model SmartTag {
+  id           String    @id @default(cuid())
+  tagCode      String    @unique // e.g. "TAG-849201" or "QR-93821"
+  batchCode    String    // e.g. "BATCH-2026-NOV"
+  type         String    @default("QR_NFC") // "QR_NFC", "NFC_CARD", "QR_STAND", "NFC_COIN"
+  status       String    @default("UNASSIGNED") // "UNASSIGNED", "ASSIGNED", "REVOKED"
+  label        String?   // e.g. "Table 4", "Main Reception", "Billing Counter"
+
+  // Linked business (optional until claimed/fed with data)
+  businessId   String?
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  assignedAt   DateTime?
+  assignedBy   String?   // Admin/User email or name who linked it
+  scanCount    Int       @default(0)
+  lastScanned  DateTime?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
