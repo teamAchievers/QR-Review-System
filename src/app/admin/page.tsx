@@ -1599,7 +1599,10 @@ export default function MasterAdminPage() {
     const doc = iframe.contentWindow?.document;
     if (!doc) return;
 
-    // Layout-specific dimensions and grids
+    // Layout-specific dimensions, orientation, and even-number chunking
+    const perPage = isA5 ? 2 : isTent ? 2 : isSticker ? 8 : 4;
+    const pageSize = (isA5 || isTent) ? "A4 landscape" : "A4 portrait";
+
     let gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
     let cardHeight = "136mm";
     let qrSize = "125px";
@@ -1608,20 +1611,23 @@ export default function MasterAdminPage() {
     let cardBorder = "2px dashed #94a3b8";
 
     if (isA5) {
-      gridCss = "grid-template-columns: 1fr; gap: 8mm;";
-      cardHeight = "138mm";
+      // 2 A5 portrait standees side-by-side in A4 Landscape
+      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
+      cardHeight = "188mm";
       qrSize = "170px";
       titleSize = "22px";
       subDisplay = "block";
       cardBorder = "2px dashed #94a3b8";
     } else if (isTent) {
-      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 8mm;";
-      cardHeight = "138mm";
-      qrSize = "135px";
-      titleSize = "17px";
+      // 2 Table-tents side-by-side in A4 Landscape
+      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
+      cardHeight = "188mm";
+      qrSize = "155px";
+      titleSize = "18px";
       subDisplay = "block";
       cardBorder = "2px dashed #2563eb";
     } else if (isSticker) {
+      // 8 stickers in A4 portrait (4 columns x 2 rows)
       gridCss = "grid-template-columns: repeat(4, 1fr); gap: 4mm;";
       cardHeight = "68mm";
       qrSize = "80px";
@@ -1630,28 +1636,47 @@ export default function MasterAdminPage() {
       cardBorder = "1.5px dashed #94a3b8";
     }
 
+    // Chunk into even-number pages so every page has exact even prints without spillover
+    const pages: any[][] = [];
+    for (let i = 0; i < batchQrList.length; i += perPage) {
+      pages.push(batchQrList.slice(i, i + perPage));
+    }
+
     doc.open();
     doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Print Standees - ${isA5 ? "A5 (2 per sheet)" : isTent ? "Foldable Table Tents" : isSticker ? "Stickers (8 per sheet)" : "A6 Acrylic (4 per sheet)"}</title>
+          <title>Print Standees - ${isA5 ? "A5 (2 per sheet Landscape)" : isTent ? "Foldable Table Tents (2 per sheet Landscape)" : isSticker ? "Stickers (8 per sheet)" : "A6 Acrylic (4 per sheet)"}</title>
           <style>
-            @page { size: A4 portrait; margin: ${isSticker ? "6mm" : "8mm"}; }
-            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            @page {
+              size: ${pageSize};
+              margin: ${isSticker ? "6mm" : "8mm"};
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
             body {
               margin: 0; padding: 0; background: #ffffff;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             }
-            .grid {
+            .print-page {
               display: grid;
               ${gridCss}
-              page-break-inside: auto;
+              box-sizing: border-box;
+              width: 100%;
+              page-break-inside: avoid;
+            }
+            .page-break {
+              page-break-after: always;
+              break-after: page;
             }
             .standee-card {
               border: ${cardBorder};
-              border-radius: ${isSticker ? "12px" : "18px"};
-              padding: ${isA5 ? "24px 28px" : isTent ? "16px 14px" : isSticker ? "8px 6px" : "16px 12px 14px"};
+              border-radius: ${isSticker ? "12px" : "20px"};
+              padding: ${isA5 ? "28px 24px" : isTent ? "22px 18px" : isSticker ? "8px 6px" : "16px 12px 14px"};
               text-align: center;
               position: relative;
               background: #ffffff;
@@ -1666,20 +1691,20 @@ export default function MasterAdminPage() {
             .accent-bar {
               position: absolute; top: 0; left: 0; right: 0;
               height: ${isA5 ? "10px" : isSticker ? "5px" : "7px"};
-              border-radius: ${isSticker ? "12px 12px 0 0" : "18px 18px 0 0"};
+              border-radius: ${isSticker ? "12px 12px 0 0" : "20px 20px 0 0"};
               background: linear-gradient(to right, #2563eb, #4f46e5, #06b6d4);
             }
             .tent-badge {
               display: ${isTent ? "inline-block" : "none"};
-              background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 8px;
-              letter-spacing: 0.12em; padding: 2px 8px; border-radius: 4px; border: 1px dashed #93c5fd;
-              margin-bottom: 2px; text-transform: uppercase;
+              background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 9px;
+              letter-spacing: 0.12em; padding: 2px 10px; border-radius: 4px; border: 1px dashed #93c5fd;
+              margin-bottom: 3px; text-transform: uppercase;
             }
             .stars {
               color: #f59e0b;
-              font-size: ${isA5 ? "24px" : isTent ? "20px" : isSticker ? "12px" : "18px"};
-              letter-spacing: ${isSticker ? "2px" : "3px"};
-              margin: ${isSticker ? "1px 0" : "2px 0"};
+              font-size: ${isA5 ? "26px" : isTent ? "22px" : isSticker ? "12px" : "18px"};
+              letter-spacing: ${isSticker ? "2px" : "4px"};
+              margin: ${isSticker ? "1px 0" : "3px 0"};
             }
             h1 {
               font-size: ${titleSize};
@@ -1704,7 +1729,7 @@ export default function MasterAdminPage() {
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isSticker ? "-12px" : "-16px"};
+              left: ${isA5 ? "-18px" : isSticker ? "-12px" : "-16px"};
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
@@ -1718,10 +1743,10 @@ export default function MasterAdminPage() {
             }
             .qr-wrap {
               display: inline-block;
-              padding: ${isSticker ? "3px" : "6px"};
+              padding: ${isA5 ? "10px" : isSticker ? "3px" : "6px"};
               background: #ffffff;
               border: ${isSticker ? "1.5px solid #e2e8f0" : "2px solid #e2e8f0"};
-              border-radius: ${isSticker ? "8px" : "14px"};
+              border-radius: ${isA5 ? "18px" : isSticker ? "8px" : "14px"};
             }
             .qr-img {
               width: ${qrSize};
@@ -1729,11 +1754,11 @@ export default function MasterAdminPage() {
               display: block;
             }
             .nfc-badge {
-              font-size: ${isA5 ? "11px" : isSticker ? "8px" : "9px"};
+              font-size: ${isA5 ? "12px" : isSticker ? "8px" : "9px"};
               font-weight: 700;
               color: #0369a1;
               background: #e0f2fe;
-              padding: ${isSticker ? "1px 6px" : "2px 10px"};
+              padding: ${isA5 ? "4px 14px" : isSticker ? "1px 6px" : "2px 10px"};
               border-radius: 9999px;
               display: inline-block;
             }
@@ -1749,36 +1774,38 @@ export default function MasterAdminPage() {
           </style>
         </head>
         <body>
-          <div class="grid">
-            ${batchQrList.map((item) => {
-              const title = item.business?.name || "Review Us On Google";
-              const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
-              return `
-                <div class="standee-card">
-                  <div class="accent-bar"></div>
-                  ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
-                  <div style="font-size: ${isSticker ? "8px" : "9px"}; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
-                    ${isTent ? "Table-Tent Standee" : isA5 ? "A5 Countertop Standee" : isSticker ? "Review Sticker" : "A6 Acrylic Standee"}
-                  </div>
-                  <h1>${title}</h1>
-                  <div class="sub">${sub}</div>
-                  <div class="stars">★★★★★</div>
-                  <div class="qr-container">
-                    <div class="vertical-tag-id">${item.tagCode}</div>
-                    <div class="qr-wrap">
-                      <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
+          ${pages.map((pageItems, pageIdx) => `
+            <div class="print-page ${pageIdx < pages.length - 1 ? 'page-break' : ''}">
+              ${pageItems.map((item) => {
+                const title = item.business?.name || "Review Us On Google";
+                const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+                return `
+                  <div class="standee-card">
+                    <div class="accent-bar"></div>
+                    ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
+                    <div style="font-size: ${isSticker ? "8px" : "9px"}; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
+                      ${isTent ? "Table-Tent Standee" : isA5 ? "A5 Countertop Standee" : isSticker ? "Review Sticker" : "A6 Acrylic Standee"}
+                    </div>
+                    <h1>${title}</h1>
+                    <div class="sub">${sub}</div>
+                    <div class="stars">★★★★★</div>
+                    <div class="qr-container">
+                      <div class="vertical-tag-id">${item.tagCode}</div>
+                      <div class="qr-wrap">
+                        <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
+                      </div>
+                    </div>
+                    <div>
+                      <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
+                    </div>
+                    <div class="footer">
+                      Powered by <strong>${poweredBy}</strong>
                     </div>
                   </div>
-                  <div>
-                    <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
-                  </div>
-                  <div class="footer">
-                    Powered by <strong>${poweredBy}</strong>
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
+                `;
+              }).join("")}
+            </div>
+          `).join("")}
         </body>
       </html>
     `);
