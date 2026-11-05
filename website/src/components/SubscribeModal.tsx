@@ -87,7 +87,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
               <h3 className="text-sm font-extrabold text-slate-900 font-['Space_Grotesk']">
                 {step === 4 ? 'Subscription & Portal Activated!' : 'Subscribe to SmartReview SaaS'}
               </h3>
-              <p className="text-[11px] text-slate-500">14-Day Free Trial • Instant QR Deployment</p>
+              <p className="text-[11px] text-slate-500">Instant Activation • Dynamic QR Deployment</p>
             </div>
           </div>
 
@@ -114,7 +114,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
             <div className="h-0.5 flex-1 mx-3 bg-slate-200" />
             <div className="flex items-center gap-2 text-xs font-semibold">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
-              <span className={step === 3 ? 'text-slate-900 font-bold' : 'text-slate-500'}>Standee & Trial</span>
+              <span className={step === 3 ? 'text-slate-900 font-bold' : 'text-slate-500'}>Standee & Activation</span>
             </div>
           </div>
         )}
@@ -128,7 +128,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-lg font-bold text-slate-900 font-['Space_Grotesk']">Select Your Growth Plan</h4>
-                  <p className="text-xs text-slate-500">All plans start with a 14-day free trial.</p>
+                  <p className="text-xs text-slate-500">Transparent pricing • Cancel anytime in your dashboard.</p>
                 </div>
 
                 {/* Annual toggle mini */}
@@ -196,7 +196,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                   <Truck className="w-4 h-4 text-emerald-600" />
                   <span>Free Express Stand Delivery Included with {activePlan.name}</span>
                 </div>
-                <span className="text-emerald-700 font-bold">$0 Charged Today</span>
+                <span className="text-emerald-700 font-bold">${price}/mo</span>
               </div>
             </div>
           )}
@@ -354,17 +354,17 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                   </div>
                 </div>
 
-                {/* 14-Day Free Trial Guarantee Box */}
+                {/* Activation & Delivery Guarantee Box */}
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold">
                     <span className="text-slate-900 flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                      14-Day Free Trial Active
+                      Instant Plan Activation
                     </span>
-                    <span className="text-emerald-700 font-extrabold">$0.00 DUE TODAY</span>
+                    <span className="text-emerald-700 font-extrabold">${price}/MO</span>
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    You won’t be charged until 14 days from now (${price}/mo thereafter). Your custom stands will ship immediately via FedEx Priority. Keep the stands even if you cancel.
+                    Your subscription activates immediately. Your custom stands will ship directly via FedEx Priority. No long-term lock-in contracts, cancel anytime.
                   </p>
                 </div>
               </div>
@@ -384,7 +384,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
                   Welcome to SmartReview SaaS!
                 </h4>
                 <p className="text-xs text-slate-600 max-w-md mx-auto mt-2">
-                  Your 14-day free trial for <strong className="text-slate-900">{activePlan.name}</strong> is live. Your live QR review funnel has been generated!
+                  Your subscription for <strong className="text-slate-900">{activePlan.name}</strong> is live. Your live QR review funnel has been generated!
                 </p>
               </div>
 
@@ -443,7 +443,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({
               onClick={handleNext}
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 flex items-center gap-1.5 cursor-pointer transition-all"
             >
-              <span>{step === 3 ? 'Activate Free 14-Day Trial' : 'Continue'}</span>
+              <span>{step === 3 ? 'Complete Subscription & Activate' : 'Continue'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

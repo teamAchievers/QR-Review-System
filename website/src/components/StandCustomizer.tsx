@@ -183,7 +183,7 @@ export const StandCustomizer: React.FC<StandCustomizerProps> = ({ onOpenSubscrib
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>Order 3 Free Custom Stands With Free Trial</span>
+                  <span>Order 3 Free Custom Stands With Plan</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <p className="text-[11px] text-center text-slate-500 mt-2 font-medium">

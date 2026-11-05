@@ -167,7 +167,7 @@ export const FAQS: FaqItem[] = [
   },
   {
     question: 'Can I cancel or change plans anytime?',
-    answer: 'Yes. There are no lock-in contracts. You get a 14-day free trial on all plans. If you decide it is not for you, you can cancel with 1 click in your dashboard without being charged. Even if you cancel, you get to keep any delivered physical stands.'
+    answer: 'Yes. There are no lock-in contracts. If you ever decide it is not for you, you can cancel with 1 click in your dashboard anytime. Even if you cancel, you get to keep any delivered physical stands.'
   }
 ];
 

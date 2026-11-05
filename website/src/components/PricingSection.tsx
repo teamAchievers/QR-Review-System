@@ -26,7 +26,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
             Invest in Revenue-Generating Reputation
           </h2>
           <p className="text-slate-600 text-base sm:text-lg mb-8">
-            All plans include physical custom NFC + QR stands shipped to your door, real-time sentiment routing, and a 14-day risk-free trial.
+            All plans include physical custom NFC + QR stands shipped to your door, real-time sentiment routing, and cancel-anytime flexibility.
           </p>
 
           {/* Billing Switcher */}
@@ -131,11 +131,11 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onOpenSubscribe 
                           : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/10'
                       }`}
                     >
-                      <span>Start 14-Day Free Trial</span>
+                      <span>Get Started</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <p className="text-[10px] text-center text-slate-500 mt-2.5">
-                      No charge today • Includes free hardware shipping
+                      Instant activation • Includes free hardware shipping
                     </p>
                   </div>
 

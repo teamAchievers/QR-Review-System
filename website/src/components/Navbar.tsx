@@ -96,13 +96,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) =
                 <span>Portal Login</span>
               </a>
 
-              {/* Start Free Trial Primary Button */}
+              {/* Get Started Primary Button */}
               <button
                 onClick={() => onOpenSubscribe('growth')}
                 className="inline-flex items-center justify-center px-4 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-500/25 hover:shadow-lg hover:shadow-blue-500/35 transition-all duration-200 cursor-pointer gap-2"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>Start 14-Day Free Trial</span>
+                <span>Get Started</span>
                 <ArrowRight className="w-4 h-4 text-white/80" />
               </button>
             </div>
@@ -160,7 +160,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSubscribe, onScrollTo }) =
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-md shadow-blue-500/25"
               >
                 <Sparkles className="w-4 h-4 text-amber-200" />
-                Start 14-Day Free Trial
+                Get Started
               </button>
             </div>
           </div>

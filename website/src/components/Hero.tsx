@@ -76,7 +76,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenSubscribe, onScrollTo }) => {
                 onClick={() => onOpenSubscribe('growth')}
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-base shadow-xl shadow-blue-600/25 hover:shadow-blue-600/35 transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer"
               >
-                <span>Start Free 14-Day Trial</span>
+                <span>Get Started Now</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
               </button>
 

@@ -52,7 +52,7 @@ export function App() {
       {/* Top Floating Notification Strip */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 py-2 px-4 text-center text-xs font-semibold text-white flex items-center justify-center gap-2 relative z-50 shadow-xs">
         <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
-        <span>Spring Growth Offer: Get 3 Free Custom Engraved Acrylic Stands with your 14-Day Free Trial</span>
+        <span>Spring Growth Offer: Get 3 Free Custom Engraved Acrylic Stands with Any Plan</span>
         <button
           onClick={() => handleOpenSubscribe('growth')}
           className="underline font-bold text-amber-200 hover:text-white cursor-pointer ml-1 inline-flex items-center gap-1 transition-colors"
@@ -111,7 +111,7 @@ export function App() {
                 onClick={() => handleOpenSubscribe('growth')}
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-base shadow-xl shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
-                <span>Start Free 14-Day Trial</span>
+                <span>Get Started Now</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
@@ -123,7 +123,7 @@ export function App() {
             </div>
 
             <p className="text-xs text-slate-500 mt-5 font-medium">
-              14-Day Free Trial • No Contract • Free Custom Acrylic Stands Included
+              Instant Setup • No Long-Term Contracts • Free Custom Acrylic Stands Included
             </p>
           </div>
         </section>
