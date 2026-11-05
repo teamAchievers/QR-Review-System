@@ -33,6 +33,7 @@ import {
   Radio,
   Cpu,
   UserCheck,
+  User,
   Building2,
   Plus,
   Search,
@@ -174,6 +175,19 @@ export default function BusinessDashboardPage() {
   // Agent Onboarded Clients & Creation State
   const [viewingClientDashboardId, setViewingClientDashboardId] = useState<string | null>(null);
   const [onboardedClients, setOnboardedClients] = useState<any[]>([]);
+  // User / Agent Profile State
+  const [agentProfileModalOpen, setAgentProfileModalOpen] = useState(false);
+  const [agentProfileForm, setAgentProfileForm] = useState({
+    name: "",
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [agentProfileLoading, setAgentProfileLoading] = useState(false);
+  const [agentProfileSaving, setAgentProfileSaving] = useState(false);
+  const [agentProfileSuccess, setAgentProfileSuccess] = useState<string | null>(null);
+  const [agentProfileError, setAgentProfileError] = useState<string | null>(null);
   const [editingReviewLink, setEditingReviewLink] = useState("");
   const [savingReviewLink, setSavingReviewLink] = useState(false);
   const [reviewLinkSaveSuccess, setReviewLinkSaveSuccess] = useState(false);
@@ -1104,6 +1118,90 @@ export default function BusinessDashboardPage() {
     }, 350);
   };
 
+  const fetchAgentProfile = async () => {
+    setAgentProfileLoading(true);
+    setAgentProfileError(null);
+    setAgentProfileSuccess(null);
+    try {
+      const res = await fetch("/api/user/profile");
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setAgentProfileForm((prev) => ({
+          ...prev,
+          name: data.user.name || "",
+          email: data.user.email || "",
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+      } else {
+        setAgentProfileError(data.error || "Failed to load profile");
+      }
+    } catch (err: any) {
+      setAgentProfileError(err.message || "Failed to load profile");
+    } finally {
+      setAgentProfileLoading(false);
+    }
+  };
+
+  const handleSaveAgentProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAgentProfileSaving(true);
+    setAgentProfileError(null);
+    setAgentProfileSuccess(null);
+
+    if (agentProfileForm.newPassword) {
+      if (agentProfileForm.newPassword.length < 6) {
+        setAgentProfileError("New password must be at least 6 characters.");
+        setAgentProfileSaving(false);
+        return;
+      }
+      if (agentProfileForm.newPassword !== agentProfileForm.confirmPassword) {
+        setAgentProfileError("New password and confirm password do not match.");
+        setAgentProfileSaving(false);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: agentProfileForm.name.trim(),
+          email: agentProfileForm.email.trim(),
+          currentPassword: agentProfileForm.currentPassword || undefined,
+          newPassword: agentProfileForm.newPassword || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update profile");
+      }
+      setAgentProfileSuccess("Profile updated successfully!");
+      if (currentUser) {
+        setCurrentUser({
+          ...currentUser,
+          name: data.user.name,
+          email: data.user.email,
+        });
+      }
+      setAgentProfileForm((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
+      setTimeout(() => {
+        setAgentProfileSuccess(null);
+      }, 4000);
+    } catch (err: any) {
+      setAgentProfileError(err.message || "Failed to update profile");
+    } finally {
+      setAgentProfileSaving(false);
+    }
+  };
+
   const handleSaveClientReviewLink = async () => {
     if (!selectedClientForView) return;
     setSavingReviewLink(true);
@@ -1253,6 +1351,18 @@ export default function BusinessDashboardPage() {
             </button>
 
             <button
+              onClick={() => {
+                fetchAgentProfile();
+                setAgentProfileModalOpen(true);
+              }}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+              title="Manage My Profile &amp; Password"
+            >
+              <User className="w-3.5 h-3.5 text-purple-600" />
+              <span className="hidden sm:inline">My Profile</span>
+            </button>
+
+            <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-slate-700 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
               title="Log out"
@@ -1353,6 +1463,18 @@ export default function BusinessDashboardPage() {
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
+            <button
+              onClick={() => {
+                fetchAgentProfile();
+                setAgentProfileModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="My Profile &amp; Settings"
+            >
+              <User className="w-3.5 h-3.5 text-slate-600" />
+              <span className="hidden sm:inline">Profile</span>
+            </button>
+
             <button
               onClick={handleLogout}
               className="p-2 text-slate-400 hover:text-slate-700 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors"

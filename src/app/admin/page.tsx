@@ -48,6 +48,7 @@ import {
   Users,
   UserPlus,
   UserCheck,
+  User,
   Briefcase,
   Wrench,
 } from "lucide-react";
@@ -168,6 +169,34 @@ export default function MasterAdminPage() {
   const [subscriptionFilter, setSubscriptionFilter] = useState<string>("ALL");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
+  // Master Admin Profile Modal State
+  const [adminProfileModalOpen, setAdminProfileModalOpen] = useState(false);
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    name: "",
+    email: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [adminProfileLoading, setAdminProfileLoading] = useState(false);
+  const [adminProfileSaving, setAdminProfileSaving] = useState(false);
+  const [adminProfileSuccess, setAdminProfileSuccess] = useState<string | null>(null);
+  const [adminProfileError, setAdminProfileError] = useState<string | null>(null);
+
+  // Edit User / Agent Profile Modal State
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [editUserForm, setEditUserForm] = useState({
+    name: "",
+    email: "",
+    role: "AGENT" as "AGENT" | "FIELD_AGENT" | "BUSINESS_ADMIN" | "SUPER_ADMIN",
+    businessId: "NONE",
+    newPassword: "",
+  });
+  const [editUserSaving, setEditUserSaving] = useState(false);
+  const [editUserError, setEditUserError] = useState<string | null>(null);
+  const [editUserSuccess, setEditUserSuccess] = useState<string | null>(null);
+
   // Team, Agents & Field Operations State
   const [usersModalOpen, setUsersModalOpen] = useState(false);
   const [usersList, setUsersList] = useState<UserItem[]>([]);
@@ -194,6 +223,139 @@ export default function MasterAdminPage() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
   const [userSuccessMsg, setUserSuccessMsg] = useState<string | null>(null);
+
+  const fetchAdminProfile = async () => {
+    setAdminProfileLoading(true);
+    setAdminProfileError(null);
+    setAdminProfileSuccess(null);
+    try {
+      const res = await fetch("/api/user/profile");
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setAdminProfileForm((prev) => ({
+          ...prev,
+          name: data.user.name || "",
+          email: data.user.email || "",
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+      } else {
+        setAdminProfileError(data.error || "Failed to load profile");
+      }
+    } catch (err: any) {
+      setAdminProfileError(err.message || "Failed to load profile");
+    } finally {
+      setAdminProfileLoading(false);
+    }
+  };
+
+  const handleSaveAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminProfileSaving(true);
+    setAdminProfileError(null);
+    setAdminProfileSuccess(null);
+
+    if (adminProfileForm.newPassword) {
+      if (adminProfileForm.newPassword.length < 6) {
+        setAdminProfileError("New password must be at least 6 characters.");
+        setAdminProfileSaving(false);
+        return;
+      }
+      if (adminProfileForm.newPassword !== adminProfileForm.confirmPassword) {
+        setAdminProfileError("New password and confirm password do not match.");
+        setAdminProfileSaving(false);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: adminProfileForm.name.trim(),
+          email: adminProfileForm.email.trim(),
+          currentPassword: adminProfileForm.currentPassword || undefined,
+          newPassword: adminProfileForm.newPassword || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update profile");
+      }
+      setAdminProfileSuccess("Profile updated successfully!");
+      setAdminProfileForm((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
+      setTimeout(() => {
+        setAdminProfileSuccess(null);
+      }, 4000);
+    } catch (err: any) {
+      setAdminProfileError(err.message || "Failed to update profile");
+    } finally {
+      setAdminProfileSaving(false);
+    }
+  };
+
+  const handleOpenEditUser = (u: UserItem) => {
+    setEditingUser(u);
+    setEditUserForm({
+      name: u.name,
+      email: u.email,
+      role: u.role as any,
+      businessId: u.businessId || "NONE",
+      newPassword: "",
+    });
+    setEditUserError(null);
+    setEditUserSuccess(null);
+    setEditUserModalOpen(true);
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditUserSaving(true);
+    setEditUserError(null);
+    setEditUserSuccess(null);
+
+    if (editUserForm.newPassword && editUserForm.newPassword.length < 6) {
+      setEditUserError("Password must be at least 6 characters if updating.");
+      setEditUserSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editUserForm.name.trim(),
+          email: editUserForm.email.trim(),
+          role: editUserForm.role,
+          businessId: editUserForm.businessId,
+          password: editUserForm.newPassword || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update user profile");
+      }
+      setEditUserSuccess("User profile updated successfully!");
+      fetchUsers();
+      setTimeout(() => {
+        setEditUserModalOpen(false);
+        setEditingUser(null);
+      }, 1500);
+    } catch (err: any) {
+      setEditUserError(err.message || "Failed to update user profile");
+    } finally {
+      setEditUserSaving(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setUsersLoading(true);
@@ -5923,15 +6085,24 @@ export default function MasterAdminPage() {
                               {new Date(u.createdAt).toLocaleDateString()}
                             </td>
                             <td className="py-2.5 px-4 text-right">
-                              {u.role !== "SUPER_ADMIN" && (
+                              <div className="flex items-center justify-end gap-1">
                                 <button
-                                  onClick={() => handleDeleteUser(u.id, u.name)}
-                                  className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors"
-                                  title="Delete user"
+                                  onClick={() => handleOpenEditUser(u)}
+                                  className="p-1.5 text-slate-400 hover:text-purple-400 rounded-lg hover:bg-purple-500/10 transition-colors cursor-pointer"
+                                  title="Edit User Profile &amp; Role"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Edit2 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+                                {u.role !== "SUPER_ADMIN" && (
+                                  <button
+                                    onClick={() => handleDeleteUser(u.id, u.name)}
+                                    className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    title="Delete user"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -8485,6 +8656,287 @@ export default function MasterAdminPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= MASTER ADMIN PROFILE MODAL ================= */}
+      {adminProfileModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 my-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-white">Master Admin Profile</h3>
+                  <p className="text-xs text-slate-400">Manage credentials &amp; administrative account info</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAdminProfileModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {adminProfileLoading ? (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <span>Loading profile details...</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveAdminProfile} className="space-y-4 text-xs">
+                {adminProfileSuccess && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 rounded-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{adminProfileSuccess}</span>
+                  </div>
+                )}
+                {adminProfileError && (
+                  <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 rounded-xl flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{adminProfileError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={adminProfileForm.name}
+                    onChange={(e) => setAdminProfileForm({ ...adminProfileForm, name: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={adminProfileForm.email}
+                    onChange={(e) => setAdminProfileForm({ ...adminProfileForm, email: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-slate-800 space-y-3">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Change Password (Optional)</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Current Password</label>
+                    <input
+                      type="password"
+                      placeholder="Enter current password if changing"
+                      value={adminProfileForm.currentPassword}
+                      onChange={(e) => setAdminProfileForm({ ...adminProfileForm, currentPassword: e.target.value })}
+                      className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Min 6 chars"
+                        value={adminProfileForm.newPassword}
+                        onChange={(e) => setAdminProfileForm({ ...adminProfileForm, newPassword: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Confirm New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Confirm password"
+                        value={adminProfileForm.confirmPassword}
+                        onChange={(e) => setAdminProfileForm({ ...adminProfileForm, confirmPassword: e.target.value })}
+                        className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setAdminProfileModalOpen(false)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adminProfileSaving}
+                    className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {adminProfileSaving ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save Profile</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= EDIT USER / AGENT PROFILE MODAL (MASTER ADMIN) ================= */}
+      {editUserModalOpen && editingUser && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl animate-in zoom-in-95 my-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-white">Edit User Profile</h3>
+                  <p className="text-xs text-slate-400">Modify credentials, role &amp; assignments for {editingUser.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditUserModalOpen(false);
+                  setEditingUser(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="space-y-4 text-xs">
+              {editUserSuccess && (
+                <div className="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 rounded-xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{editUserSuccess}</span>
+                </div>
+              )}
+              {editUserError && (
+                <div className="p-3 bg-rose-950/60 border border-rose-800 text-rose-300 rounded-xl flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{editUserError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editUserForm.name}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={editUserForm.email}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">User Role</label>
+                  <select
+                    value={editUserForm.role}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value as any })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="AGENT">💼 Sales Agent</option>
+                    <option value="FIELD_AGENT">🛠️ Field Agent</option>
+                    <option value="BUSINESS_ADMIN">🏢 Business Admin</option>
+                    <option value="SUPER_ADMIN">👑 Super Admin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Assigned Business</label>
+                  <select
+                    value={editUserForm.businessId}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, businessId: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="NONE">None / Floating</option>
+                    {businesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-300 font-semibold">Reset Password (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gen = "User#" + Math.floor(1000 + Math.random() * 9000) + "!";
+                      setEditUserForm({ ...editUserForm, newPassword: gen });
+                    }}
+                    className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold"
+                  >
+                    Generate Random
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Leave blank to keep existing password"
+                  value={editUserForm.newPassword}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, newPassword: e.target.value })}
+                  className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditUserModalOpen(false);
+                    setEditingUser(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editUserSaving}
+                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {editUserSaving ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
