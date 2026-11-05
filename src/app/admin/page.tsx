@@ -1482,6 +1482,83 @@ export default function MasterAdminPage() {
     }, 350);
   };
 
+  const handleDownloadStandeeSvg = (tagItem: any, qrUrl: string | null) => {
+    if (!tagItem || !qrUrl) return;
+    const isAssigned = !!tagItem.business;
+    const bName = escapeSvgText(isAssigned ? tagItem.business.name : "Review Us On Google");
+    const bCity = escapeSvgText(isAssigned ? (tagItem.business.city || "") : "Tap Phone or Scan Camera");
+    const poweredBy = escapeSvgText(globalBranding.poweredByText || "Unbox Studio");
+
+    // Standard A5 Trim Size: 148 x 210 mm (1480 x 2100 in 0.1mm units)
+    // Safe Zone: Keep critical elements > 5mm (50 units) away from edges for acrylic sign frames
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1480 2100" width="148mm" height="210mm" style="width: 100%; height: auto; display: block;">
+  <defs>
+    <linearGradient id="singleA5Grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <clipPath id="singleA5Clip">
+      <rect x="50" y="50" width="1380" height="2000" rx="90" />
+    </clipPath>
+  </defs>
+
+  <!-- Sheet Background -->
+  <rect width="1480" height="2100" fill="#ffffff" />
+
+  <!-- Acrylic Standee Safe Zone & Dashed Border -->
+  <rect x="50" y="50" width="1380" height="2000" rx="90" fill="#ffffff" stroke="#cbd5e1" stroke-width="16" stroke-dasharray="36,20" />
+
+  <!-- Top Accent Bar (clipped to rounded corners) -->
+  <rect x="50" y="50" width="1380" height="85" fill="url(#singleA5Grad)" clip-path="url(#singleA5Clip)" />
+
+  <!-- Badge -->
+  <text x="740" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="40" font-weight="900" fill="#2563eb" letter-spacing="4">★ SMART REVIEW STANDEE ★</text>
+
+  <!-- Business Name / Main Message (Clarity First) -->
+  <text x="740" y="320" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="82" font-weight="900" fill="#0f172a">${bName}</text>
+
+  <!-- Subtitle / Location -->
+  <text x="740" y="395" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="500" fill="#64748b">${bCity}</text>
+
+  <!-- Five Gold Stars -->
+  <text x="740" y="490" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="80" fill="#f59e0b" letter-spacing="16">★★★★★</text>
+
+  <!-- Engagement Heading -->
+  <text x="740" y="580" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="800" fill="#1e293b">How Was Your Experience?</text>
+  <text x="740" y="640" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="38" font-weight="500" fill="#64748b">Tap your phone (NFC) or scan with camera to review</text>
+
+  <!-- Centerpiece QR Box (~45% of design) -->
+  <g transform="translate(740, 1140)">
+    <!-- Vertical 8px Tag ID outside left of QR Box -->
+    <text x="-540" y="0" text-anchor="middle" font-family="monospace" font-size="34" font-weight="700" fill="#94a3b8" letter-spacing="4" transform="rotate(-90 -540 0)">${escapeSvgText(tagItem.tagCode)}</text>
+
+    <!-- Outer QR wrap box with safe padding -->
+    <rect x="-480" y="-480" width="960" height="960" rx="140" fill="#f8fafc" stroke="#e2e8f0" stroke-width="16" />
+    <image href="${qrUrl}" x="-440" y="-440" width="880" height="880" rx="100" preserveAspectRatio="xMidYMid meet" />
+  </g>
+
+  <!-- Instant NFC Tap Badge -->
+  <g transform="translate(740, 1750)">
+    <rect x="-380" y="-55" width="760" height="110" rx="55" fill="#f0f9ff" stroke="#bae6fd" stroke-width="12" />
+    <text x="0" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="700" fill="#0369a1">📲 Instant NFC Tap &amp; QR Scan • No App Needed</text>
+  </g>
+
+  <!-- Footer Divider & Branding -->
+  <line x1="120" y1="1880" x2="1360" y2="1880" stroke="#f1f5f9" stroke-width="12" />
+  <text x="740" y="1960" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="40" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${poweredBy}</tspan></text>
+</svg>`;
+
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Standee_A5_${tagItem.tagCode}.svg`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const handleDownloadStandeePng = (tagItem: any, qrUrl: string | null) => {
     if (!tagItem || !qrUrl) return;
     const isAssigned = !!tagItem.business;
@@ -1489,65 +1566,71 @@ export default function MasterAdminPage() {
     const bCity = isAssigned ? (tagItem.business.city || "") : "Tap Phone or Scan Camera";
     const poweredBy = globalBranding.poweredByText || "Unbox Studio";
 
+    // Exact A5 Trim Size at 300 DPI: 1754 x 2480 pixels
     const canvas = document.createElement("canvas");
-    canvas.width = 1200;
-    canvas.height = 1750;
+    canvas.width = 1754;
+    canvas.height = 2480;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Background
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 1200, 1750);
+    ctx.fillRect(0, 0, 1754, 2480);
 
-    // Border
+    // 5mm Safe Zone Border (at 300 DPI, 5mm ~ 60px)
     ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 14;
-    ctx.strokeRect(36, 36, 1128, 1678);
+    ctx.lineWidth = 18;
+    ctx.strokeRect(60, 60, 1634, 2360);
 
-    // Accent Top Bar
-    const grad = ctx.createLinearGradient(36, 36, 1164, 36);
+    // Top Accent Gradient Bar
+    const grad = ctx.createLinearGradient(60, 60, 1694, 60);
     grad.addColorStop(0, "#2563eb");
     grad.addColorStop(0.5, "#4f46e5");
     grad.addColorStop(1, "#06b6d4");
     ctx.fillStyle = grad;
-    ctx.fillRect(43, 43, 1114, 40);
+    ctx.fillRect(69, 69, 1616, 50);
 
     ctx.textAlign = "center";
 
-    // Top Header / Business Name
+    // Badge
+    ctx.fillStyle = "#2563eb";
+    ctx.font = "bold 44px -apple-system, sans-serif";
+    ctx.fillText("★ SMART REVIEW STANDEE ★", 877, 210);
+
+    // Main Title (Clarity First)
     ctx.fillStyle = "#0f172a";
-    ctx.font = "bold 56px -apple-system, sans-serif";
-    ctx.fillText(bName.slice(0, 32), 600, 210);
+    ctx.font = "900 84px -apple-system, sans-serif";
+    ctx.fillText(bName.slice(0, 28), 877, 330);
 
     // Subtitle / City
     ctx.fillStyle = "#64748b";
-    ctx.font = "500 34px -apple-system, sans-serif";
-    ctx.fillText(bCity, 600, 270);
+    ctx.font = "500 48px -apple-system, sans-serif";
+    ctx.fillText(bCity, 877, 410);
 
-    // Five Stars
+    // Five Gold Stars
     ctx.fillStyle = "#f59e0b";
-    ctx.font = "bold 64px -apple-system, sans-serif";
-    ctx.fillText("★ ★ ★ ★ ★", 600, 350);
+    ctx.font = "bold 90px -apple-system, sans-serif";
+    ctx.fillText("★ ★ ★ ★ ★", 877, 520);
 
     // "How Was Your Experience?"
     ctx.fillStyle = "#1e293b";
-    ctx.font = "bold 42px -apple-system, sans-serif";
-    ctx.fillText("How Was Your Experience?", 600, 415);
+    ctx.font = "bold 58px -apple-system, sans-serif";
+    ctx.fillText("How Was Your Experience?", 877, 620);
 
     // Instructions
     ctx.fillStyle = "#64748b";
-    ctx.font = "30px -apple-system, sans-serif";
-    ctx.fillText("Tap phone here (NFC) or scan with camera", 600, 465);
+    ctx.font = "42px -apple-system, sans-serif";
+    ctx.fillText("Tap phone here (NFC) or scan with camera", 877, 685);
 
-    // Load QR Box - Enlarged to 840x840 px covering ~48% of design
+    // Center QR Box - Covering ~46% of design
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#94a3b8";
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 10;
     ctx.beginPath();
     if (typeof (ctx as any).roundRect === "function") {
-      (ctx as any).roundRect(180, 500, 840, 840, [44]);
+      (ctx as any).roundRect(287, 740, 1180, 1180, [55]);
     } else {
-      ctx.rect(180, 500, 840, 840);
+      ctx.rect(287, 740, 1180, 1180);
     }
     ctx.fill();
     ctx.stroke();
@@ -1555,48 +1638,48 @@ export default function MasterAdminPage() {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Draw QR image enlarged to 780x780 px (45% of total 1750px canvas)
-      ctx.drawImage(img, 210, 530, 780, 780);
+      // Draw High-Res QR (covers 1080x1080 px)
+      ctx.drawImage(img, 337, 790, 1080, 1080);
 
-      // Vertical Tag ID OUTSIDE left side of QR Box (8px equivalent)
+      // Vertical 8px Tag ID OUTSIDE left of QR Box
       ctx.save();
-      ctx.translate(145, 920);
+      ctx.translate(235, 1330);
       ctx.rotate(-Math.PI / 2);
       ctx.fillStyle = "#64748b";
-      ctx.font = "bold 20px monospace";
+      ctx.font = "bold 28px monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(tagItem.tagCode, 0, 0);
       ctx.restore();
 
-      // NFC / Instant Tap Badge
+      // NFC Action Badge
       ctx.fillStyle = "#e0f2fe";
       ctx.beginPath();
       if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(310, 1385, 580, 75, [38]);
+        (ctx as any).roundRect(427, 2010, 900, 110, [55]);
       } else {
-        ctx.rect(310, 1385, 580, 75);
+        ctx.rect(427, 2010, 900, 110);
       }
       ctx.fill();
 
       ctx.fillStyle = "#0369a1";
-      ctx.font = "bold 32px -apple-system, sans-serif";
-      ctx.fillText("📲 Instant NFC Tap & QR Scan", 600, 1435);
+      ctx.font = "bold 46px -apple-system, sans-serif";
+      ctx.fillText("📲 Instant NFC Tap & QR Scan • No App Needed", 877, 2082);
 
       // Brand Footer
       ctx.strokeStyle = "#e2e8f0";
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(150, 1530);
-      ctx.lineTo(1050, 1530);
+      ctx.moveTo(200, 2210);
+      ctx.lineTo(1554, 2210);
       ctx.stroke();
 
       ctx.fillStyle = "#94a3b8";
-      ctx.font = "34px -apple-system, sans-serif";
-      ctx.fillText(`Powered by ${poweredBy}`, 600, 1610);
+      ctx.font = "46px -apple-system, sans-serif";
+      ctx.fillText(`Powered by ${poweredBy}`, 877, 2315);
 
       const link = document.createElement("a");
-      link.download = `Standee_${tagItem.tagCode}.png`;
+      link.download = `Standee_A5_${tagItem.tagCode}_300DPI.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
@@ -1950,8 +2033,9 @@ export default function MasterAdminPage() {
     img.onload = () => {
       const canvas = document.createElement("canvas");
       // 300 DPI high-resolution sheet
-      canvas.width = isLandscape ? 2970 : 2100;
-      canvas.height = isLandscape ? 2100 : 2970;
+      // 300 DPI commercial print resolution (A4 is 2480 x 3508 px, each half is 1754 x 2480 px A5)
+      canvas.width = isLandscape ? 3508 : 2480;
+      canvas.height = isLandscape ? 2480 : 3508;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.fillStyle = "#ffffff";
@@ -6736,9 +6820,20 @@ export default function MasterAdminPage() {
                 type="button"
                 onClick={() => handleDownloadStandeePng(selectedTagForQr, tagQrDataUrl)}
                 className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+                title="Download 1754 x 2480 px (300 DPI) print-ready A5 PNG"
               >
                 <Download className="w-4 h-4" />
-                <span>Download Standee PNG</span>
+                <span>A5 PNG (300 DPI)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownloadStandeeSvg(selectedTagForQr, tagQrDataUrl)}
+                className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+                title="Download 148 x 210 mm print-ready vector SVG with safe zone"
+              >
+                <Download className="w-4 h-4" />
+                <span>A5 Standee SVG</span>
               </button>
 
               <a
