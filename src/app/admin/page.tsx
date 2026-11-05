@@ -1626,10 +1626,10 @@ export default function MasterAdminPage() {
     // 4 A6 cards on A4 portrait (2100x2970 tenths-of-mm)
     // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
     const cardsCoords = [
-      { x: 70, y: 70 },
-      { x: 1080, y: 70 },
-      { x: 70, y: 1520 },
-      { x: 1080, y: 1520 }
+      { x: 70, y: 70, id: "c0" },
+      { x: 1080, y: 70, id: "c1" },
+      { x: 70, y: 1520, id: "c2" },
+      { x: 1080, y: 1520, id: "c3" }
     ];
 
     let cardsSvg = "";
@@ -1640,13 +1640,20 @@ export default function MasterAdminPage() {
       const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
       const tagCode = escapeSvgText(item.tagCode);
 
+      const clipId = `cardClipA6_${c.id}`;
       cardsSvg += `
       <g transform="translate(${c.x}, ${c.y})">
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="0" y="0" width="950" height="1380" rx="90" />
+          </clipPath>
+        </defs>
+
         <!-- Card Boundary & Cutting Dashed Line -->
-        <rect x="0" y="0" width="950" height="1380" rx="180" fill="#ffffff" stroke="#cbd5e1" stroke-width="16" stroke-dasharray="40,24" />
+        <rect x="0" y="0" width="950" height="1380" rx="90" fill="#ffffff" stroke="#cbd5e1" stroke-width="14" stroke-dasharray="32,20" />
         
-        <!-- Top Accent Bar -->
-        <path d="M 0 180 A 180 180 0 0 1 180 0 L 770 0 A 180 180 0 0 1 950 180 L 950 70 L 0 70 Z" fill="url(#${accentGradId})" />
+        <!-- Top Accent Bar with clean rounded clip -->
+        <rect x="0" y="0" width="950" height="75" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
 
         <!-- Category Badge -->
         <text x="475" y="130" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="${accentColor}" letter-spacing="3">${badgeText}</text>
@@ -1684,7 +1691,7 @@ export default function MasterAdminPage() {
       </g>`;
     });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="210mm" height="297mm">
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="100%" height="100%">
       <defs>
         <linearGradient id="standeeGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#2563eb" />
@@ -1710,8 +1717,8 @@ export default function MasterAdminPage() {
     // 2 A5 cards on A4 landscape (2970x2100 tenths-of-mm)
     // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
     const cardsCoords = [
-      { x: 70, y: 70 },
-      { x: 1520, y: 70 }
+      { x: 70, y: 70, id: "c0" },
+      { x: 1520, y: 70, id: "c1" }
     ];
 
     let cardsSvg = "";
@@ -1722,13 +1729,20 @@ export default function MasterAdminPage() {
       const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
       const tagCode = escapeSvgText(item.tagCode);
 
+      const clipId = `cardClipA5_${c.id}`;
       cardsSvg += `
       <g transform="translate(${c.x}, ${c.y})">
+        <defs>
+          <clipPath id="${clipId}">
+            <rect x="0" y="0" width="1380" height="1960" rx="110" />
+          </clipPath>
+        </defs>
+
         <!-- Card Boundary & Cutting Dashed Line -->
-        <rect x="0" y="0" width="1380" height="1960" rx="220" fill="#ffffff" stroke="#cbd5e1" stroke-width="18" stroke-dasharray="50,30" />
+        <rect x="0" y="0" width="1380" height="1960" rx="110" fill="#ffffff" stroke="#cbd5e1" stroke-width="18" stroke-dasharray="40,24" />
         
-        <!-- Top Accent Bar -->
-        <path d="M 0 220 A 220 220 0 0 1 220 0 L 1160 0 A 220 220 0 0 1 1380 220 L 1380 90 L 0 90 Z" fill="url(#${accentGradId})" />
+        <!-- Top Accent Bar with clean rounded clip -->
+        <rect x="0" y="0" width="1380" height="95" fill="url(#${accentGradId})" clip-path="url(#${clipId})" />
 
         <!-- Category Badge -->
         <text x="690" y="150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="${accentColor}" letter-spacing="4">${badgeText}</text>
@@ -1766,7 +1780,7 @@ export default function MasterAdminPage() {
       </g>`;
     });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="297mm" height="210mm">
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="100%" height="100%">
       <defs>
         <linearGradient id="standeeGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#2563eb" />
@@ -6929,12 +6943,13 @@ export default function MasterAdminPage() {
                   </div>
 
                   {/* 100% Exact 1:1 Vector SVG Sheet Preview */}
-                  <div className="flex items-center justify-center p-3 bg-slate-100/60 rounded-3xl border border-slate-200 overflow-x-auto">
+                  <div className="flex items-center justify-center p-3 sm:p-5 bg-slate-100/70 rounded-3xl border border-slate-200">
                     <div
-                      className="bg-white rounded-2xl shadow-xl border border-slate-300 overflow-hidden shrink-0 transition-transform"
+                      className="bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden shrink-0 transition-transform [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
                       style={{
-                        width: isLandscape ? "720px" : "510px",
+                        width: isLandscape ? "720px" : "520px",
                         maxWidth: "100%",
+                        aspectRatio: isLandscape ? "297/210" : "210/297",
                       }}
                       dangerouslySetInnerHTML={{ __html: currentSheetSvg }}
                     />
