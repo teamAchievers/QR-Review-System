@@ -41,6 +41,10 @@ import {
   Cpu,
   FileText,
   Lock,
+  Smartphone,
+  Wifi,
+  Zap,
+  CheckCircle2,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 import { convertFromInr, convertInrToUsd, convertUsdToInr, formatCurrency, CURRENCY_METADATA, isCurrencyStrongerThanInr } from "@/lib/currency";
@@ -971,6 +975,23 @@ export default function MasterAdminPage() {
   }[]>([]);
   const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A5" | "A6" | "TENT" | "STICKER_A5" | "STICKER_A6">("A6");
   const [preparingSheet, setPreparingSheet] = useState(false);
+
+  // NFC Tool & Programming Studio State
+  const [nfcModalOpen, setNfcModalOpen] = useState(false);
+  const [selectedTagForNfc, setSelectedTagForNfc] = useState<any | null>(null);
+  const [nfcTab, setNfcTab] = useState<"WRITE" | "BATCH" | "READ" | "GUIDE">("WRITE");
+  const [nfcStatus, setNfcStatus] = useState<"IDLE" | "SCANNING" | "WRITING" | "SUCCESS" | "ERROR">("IDLE");
+  const [nfcMessage, setNfcMessage] = useState<string>("");
+  const [nfcReadResult, setNfcReadResult] = useState<{
+    serialNumber?: string;
+    records?: Array<{ recordType: string; data: string }>;
+    matchedTag?: any;
+  } | null>(null);
+  const [nfcBatchQueue, setNfcBatchQueue] = useState<any[]>([]);
+  const [nfcBatchIndex, setNfcBatchIndex] = useState(0);
+  const [nfcBatchSuccessCount, setNfcBatchSuccessCount] = useState(0);
+  const [nfcAutoAdvance, setNfcAutoAdvance] = useState(true);
+  const [webNfcSupported, setWebNfcSupported] = useState<boolean | null>(null);
 
   const fetchTags = async (statusParam?: string, batchParam?: string, searchParam?: string) => {
     setLoadingTags(true);
@@ -1915,6 +1936,226 @@ export default function MasterAdminPage() {
       alert("Error preparing printable batch sheet");
     } finally {
       setPreparingSheet(false);
+    }
+  };
+
+  // Check Web NFC availability on client mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWebNfcSupported("NDEFReader" in window);
+    }
+  }, []);
+
+  // Audio & haptic chime for NFC actions
+  const playNfcChime = (success = true) => {
+    try {
+      if (typeof window !== "undefined") {
+        if ("vibrate" in navigator) {
+          navigator.vibrate(success ? [120, 60, 120] : [300, 100, 300]);
+        }
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          if (success) {
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.35);
+          } else {
+            osc.frequency.setValueAtTime(220, ctx.currentTime);
+            osc.frequency.setValueAtTime(164.81, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.4);
+          }
+        }
+      }
+    } catch {
+      // Audio/vibrate may be blocked without user interaction
+    }
+  };
+
+  const handleOpenNfcTool = (tagItem?: any) => {
+    const targetTag = tagItem || (tags.length > 0 ? tags[0] : null);
+    setSelectedTagForNfc(targetTag);
+    setNfcStatus("IDLE");
+    setNfcMessage("");
+    setNfcReadResult(null);
+
+    // Build batch queue from current filters or selection
+    let queue = [...tags];
+    if (selectedTagBatch !== "ALL") {
+      queue = queue.filter((t) => t.batchCode === selectedTagBatch);
+    }
+    if (selectedTagIds.length > 0) {
+      queue = queue.filter((t) => selectedTagIds.includes(t.id));
+    }
+    setNfcBatchQueue(queue);
+
+    const targetIndex = targetTag ? queue.findIndex((t) => t.id === targetTag.id) : 0;
+    setNfcBatchIndex(targetIndex >= 0 ? targetIndex : 0);
+    setNfcBatchSuccessCount(0);
+    setNfcTab("WRITE");
+    setNfcModalOpen(true);
+  };
+
+  const handleWriteNfcSingle = async (tagItem: any) => {
+    if (!tagItem) return;
+    const url = `${window.location.origin}/t/${tagItem.tagCode}`;
+
+    if (!("NDEFReader" in window)) {
+      setNfcStatus("ERROR");
+      setNfcMessage(
+        "Web NFC is not supported in this browser. To write directly via browser tap, open this admin panel in Chrome on Android. Alternatively, copy the URL below and write with the free 'NFC Tools' mobile app."
+      );
+      return;
+    }
+
+    try {
+      setNfcStatus("WRITING");
+      setNfcMessage(`Hold physical NFC chip or standee against your phone to program [${tagItem.tagCode}]...`);
+      const ndef = new (window as any).NDEFReader();
+      await ndef.write({
+        records: [
+          {
+            recordType: "url",
+            data: url,
+          },
+        ],
+      });
+      playNfcChime(true);
+      setNfcStatus("SUCCESS");
+      setNfcMessage(`Successfully programmed NFC tag [${tagItem.tagCode}] with URL: ${url}`);
+    } catch (err: any) {
+      console.error("NFC write error:", err);
+      playNfcChime(false);
+      setNfcStatus("ERROR");
+      setNfcMessage(err?.message || "Failed to write NFC tag. Ensure NFC is enabled in device settings.");
+    }
+  };
+
+  const handleWriteNfcBatchTag = async (index: number) => {
+    if (index >= nfcBatchQueue.length) {
+      setNfcStatus("SUCCESS");
+      setNfcMessage("All tags in queue have been processed!");
+      return;
+    }
+    const currentTag = nfcBatchQueue[index];
+    const url = `${window.location.origin}/t/${currentTag.tagCode}`;
+
+    if (!("NDEFReader" in window)) {
+      setNfcStatus("ERROR");
+      setNfcMessage("Web NFC is not supported on this browser. Use Chrome on Android or the NFC Tools mobile app.");
+      return;
+    }
+
+    try {
+      setNfcStatus("WRITING");
+      setNfcMessage(`Hold tag #${index + 1} (${currentTag.tagCode}) against phone reader...`);
+      const ndef = new (window as any).NDEFReader();
+      await ndef.write({
+        records: [
+          {
+            recordType: "url",
+            data: url,
+          },
+        ],
+      });
+      playNfcChime(true);
+      setNfcBatchSuccessCount((prev) => prev + 1);
+      setNfcStatus("SUCCESS");
+      setNfcMessage(`Tag ${currentTag.tagCode} (#${index + 1}) programmed successfully!`);
+
+      if (nfcAutoAdvance && index + 1 < nfcBatchQueue.length) {
+        setNfcBatchIndex(index + 1);
+      }
+    } catch (err: any) {
+      console.error("Batch NFC write error:", err);
+      playNfcChime(false);
+      setNfcStatus("ERROR");
+      setNfcMessage(err?.message || `Failed to write tag ${currentTag.tagCode}.`);
+    }
+  };
+
+  const handleStartNfcRead = async () => {
+    if (!("NDEFReader" in window)) {
+      setNfcStatus("ERROR");
+      setNfcMessage("Web NFC read is not supported on this browser. Use Chrome on Android or the NFC Tools app.");
+      return;
+    }
+
+    try {
+      setNfcStatus("SCANNING");
+      setNfcMessage("Scanning active... Touch any NFC chip, card, coin, or standee to your phone.");
+      setNfcReadResult(null);
+      const ndef = new (window as any).NDEFReader();
+      await ndef.scan();
+
+      ndef.onreading = (event: any) => {
+        playNfcChime(true);
+        const serialNumber = event.serialNumber || "Unknown Chip UID";
+        const records: Array<{ recordType: string; data: string }> = [];
+
+        for (const record of event.message.records) {
+          if (record.recordType === "url") {
+            const textDecoder = new TextDecoder();
+            records.push({
+              recordType: "URL",
+              data: textDecoder.decode(record.data),
+            });
+          } else if (record.recordType === "text") {
+            const textDecoder = new TextDecoder(record.encoding || "utf-8");
+            records.push({
+              recordType: "Text",
+              data: textDecoder.decode(record.data),
+            });
+          } else {
+            records.push({
+              recordType: record.recordType,
+              data: `[${record.data?.byteLength || 0} bytes payload]`,
+            });
+          }
+        }
+
+        // Match URL to our database
+        let matchedTag: any = null;
+        for (const r of records) {
+          const match = r.data.match(/\/t\/([A-Za-z0-9_-]+)/);
+          if (match && match[1]) {
+            const found = tags.find((t) => t.tagCode.toLowerCase() === match[1].toLowerCase());
+            if (found) {
+              matchedTag = found;
+              break;
+            }
+          }
+        }
+
+        setNfcReadResult({
+          serialNumber,
+          records,
+          matchedTag,
+        });
+        setNfcStatus("SUCCESS");
+        setNfcMessage(`Read tag with Serial #${serialNumber}!`);
+      };
+
+      ndef.onreadingerror = () => {
+        playNfcChime(false);
+        setNfcStatus("ERROR");
+        setNfcMessage("Could not read tag. Ensure tag is NDEF-compatible and not locked with incompatible encryption.");
+      };
+    } catch (err: any) {
+      console.error("NFC scan error:", err);
+      playNfcChime(false);
+      setNfcStatus("ERROR");
+      setNfcMessage(err?.message || "Failed to start NFC scan. Please check device permissions.");
     }
   };
 
@@ -3611,6 +3852,16 @@ export default function MasterAdminPage() {
 
                 <button
                   type="button"
+                  onClick={() => handleOpenNfcTool()}
+                  className="px-3 py-2 bg-gradient-to-r from-purple-900/70 to-indigo-900/70 hover:from-purple-800 hover:to-indigo-800 text-purple-200 hover:text-white border border-purple-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  title="Configure & Program physical NFC hardware (Standees, Cards, Coins)"
+                >
+                  <Radio className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Configure NFC Tool</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => handleExportNfcCsv(selectedTagBatch)}
                   className="px-3 py-2 bg-slate-900 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   title="Download list of direct URLs for NFC tag writers"
@@ -3815,6 +4066,16 @@ export default function MasterAdminPage() {
                                 >
                                   <QrCode className="w-3.5 h-3.5 text-blue-400" />
                                   <span>Standee</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenNfcTool(t)}
+                                  className="py-1 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-700/60 transition-all flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer shadow-sm"
+                                  title="Configure & Program NFC Chip / Standee"
+                                >
+                                  <Radio className="w-3.5 h-3.5 text-purple-400" />
+                                  <span>NFC</span>
                                 </button>
 
                                 <button
@@ -6406,6 +6667,18 @@ export default function MasterAdminPage() {
                 <Copy className="w-3.5 h-3.5" />
                 <span>Copy URL</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSingleQrModalOpen(false);
+                  handleOpenNfcTool(selectedTagForQr);
+                }}
+                className="col-span-2 py-2.5 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+              >
+                <Radio className="w-4 h-4 text-purple-200 animate-pulse" />
+                <span>Program Physical NFC Chip / Standee</span>
+              </button>
             </div>
           </div>
         </div>
@@ -6564,6 +6837,686 @@ export default function MasterAdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= NFC HARDWARE CONFIGURATION & PROGRAMMING TOOL ================= */}
+      {nfcModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 text-white rounded-3xl max-w-3xl w-full p-5 sm:p-7 shadow-2xl my-6 animate-in zoom-in-95">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-800 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <Radio className="w-4 h-4 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                      <span>NFC Hardware Studio &amp; Programming Tool</span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Configure, encode &amp; test physical NFC standees, review cards &amp; coins
+                    </p>
+                  </div>
+                </div>
+
+                {/* Web NFC Support Badge */}
+                <div className="mt-2 flex items-center gap-2">
+                  {webNfcSupported === true ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <Wifi className="w-3 h-3 text-emerald-400" />
+                      <span>Web NFC Active • 1-Tap Browser Write Supported</span>
+                    </span>
+                  ) : webNfcSupported === false ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <Smartphone className="w-3 h-3 text-amber-400" />
+                      <span>Web NFC Inactive in this Browser (Use Chrome on Android or NFC Tools App)</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                      <span>Checking browser NFC capabilities...</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setNfcModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mode Tabs */}
+            <div className="flex items-center gap-1.5 my-4 p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-semibold overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcTab("WRITE");
+                  setNfcStatus("IDLE");
+                  setNfcMessage("");
+                }}
+                className={`px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                  nfcTab === "WRITE"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-900"
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>1-Tap Writer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcTab("BATCH");
+                  setNfcStatus("IDLE");
+                  setNfcMessage("");
+                }}
+                className={`px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                  nfcTab === "BATCH"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-900"
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Rapid Batch Queue</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-purple-950 text-purple-200 border border-purple-700/60">
+                  {nfcBatchQueue.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcTab("READ");
+                  setNfcStatus("IDLE");
+                  setNfcMessage("");
+                  setNfcReadResult(null);
+                }}
+                className={`px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                  nfcTab === "READ"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-900"
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                <span>Tag Inspector &amp; Reader</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcTab("GUIDE");
+                  setNfcStatus("IDLE");
+                  setNfcMessage("");
+                }}
+                className={`px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-colors cursor-pointer ${
+                  nfcTab === "GUIDE"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-900"
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>NFC Tools App Guide</span>
+              </button>
+            </div>
+
+            {/* TAB 1: 1-TAP SINGLE TAG WRITER */}
+            {nfcTab === "WRITE" && (
+              <div className="space-y-4">
+                {/* Tag Selection Dropdown */}
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                    Select Hardware Tag to Program:
+                  </label>
+                  <select
+                    value={selectedTagForNfc?.id || ""}
+                    onChange={(e) => {
+                      const found = tags.find((t) => t.id === e.target.value);
+                      if (found) {
+                        setSelectedTagForNfc(found);
+                        setNfcStatus("IDLE");
+                        setNfcMessage("");
+                      }
+                    }}
+                    className="w-full text-xs sm:text-sm p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                  >
+                    {tags.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.tagCode} — {t.status === "ASSIGNED" ? `Assigned: ${t.business?.name}` : "IN STOCK (BLANK)"} — {t.type}
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedTagForNfc && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-mono text-purple-400 font-bold text-sm">
+                        {selectedTagForNfc.tagCode}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          selectedTagForNfc.status === "ASSIGNED"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : "bg-amber-400/20 text-amber-400 border border-amber-400/30"
+                        }`}
+                      >
+                        {selectedTagForNfc.status === "ASSIGNED"
+                          ? `ACTIVE: ${selectedTagForNfc.business?.name}`
+                          : "IN STOCK (BLANK)"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
+                        {selectedTagForNfc.type}
+                      </span>
+                      {selectedTagForNfc.batchCode && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400 border border-slate-700">
+                          Batch: {selectedTagForNfc.batchCode}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Target URL Card */}
+                {selectedTagForNfc && (
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                      <span className="font-semibold">Target NDEF URI (Encoded into Chip):</span>
+                      <span className="text-[10px] text-purple-400 font-mono">Standard NDEF URL Record</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/80 rounded-xl p-2.5">
+                      <span className="font-mono text-xs text-emerald-400 truncate flex-1 select-all">
+                        {typeof window !== "undefined" ? window.location.origin : ""}/t/{selectedTagForNfc.tagCode}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `${window.location.origin}/t/${selectedTagForNfc.tagCode}`;
+                          navigator.clipboard.writeText(url);
+                          setSuccessMsg("Copied direct NFC URL to clipboard!");
+                        }}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0"
+                        title="Copy URL"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </button>
+                      <a
+                        href={`/t/${selectedTagForNfc.tagCode}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1 text-slate-400 hover:text-white shrink-0"
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Interactive Radar & Tap Trigger */}
+                <div className="bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800 rounded-3xl p-6 text-center relative overflow-hidden">
+                  <div className="relative z-10 max-w-sm mx-auto">
+                    {/* Visual Animated Radar / Icon */}
+                    <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                      {nfcStatus === "WRITING" ? (
+                        <>
+                          <div className="absolute inset-0 rounded-full border-2 border-purple-500/40 animate-ping" />
+                          <div className="absolute inset-2 rounded-full border-2 border-purple-400/60 animate-pulse" />
+                          <div className="w-16 h-16 rounded-full bg-purple-600/30 border border-purple-400 flex items-center justify-center">
+                            <Radio className="w-8 h-8 text-purple-300 animate-spin" />
+                          </div>
+                        </>
+                      ) : nfcStatus === "SUCCESS" ? (
+                        <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center animate-in zoom-in-75">
+                          <CheckCircle2 className="w-9 h-9 text-emerald-400" />
+                        </div>
+                      ) : nfcStatus === "ERROR" ? (
+                        <div className="w-16 h-16 rounded-full bg-rose-500/20 border-2 border-rose-500 flex items-center justify-center animate-in zoom-in-75">
+                          <AlertTriangle className="w-8 h-8 text-rose-400" />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+                          <Radio className="w-8 h-8 text-purple-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Button */}
+                    <button
+                      type="button"
+                      disabled={!selectedTagForNfc || nfcStatus === "WRITING"}
+                      onClick={() => handleWriteNfcSingle(selectedTagForNfc)}
+                      className={`w-full py-3.5 px-5 rounded-2xl font-black text-sm tracking-wide shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        nfcStatus === "WRITING"
+                          ? "bg-purple-700 text-white animate-pulse"
+                          : nfcStatus === "SUCCESS"
+                          ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                          : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white active:scale-98"
+                      }`}
+                    >
+                      <Radio className="w-4 h-4" />
+                      <span>
+                        {nfcStatus === "WRITING"
+                          ? "Tap Tag to Back of Phone..."
+                          : nfcStatus === "SUCCESS"
+                          ? `Programmed! Tap to Write Again`
+                          : `Write NFC Tag (${selectedTagForNfc?.tagCode || ""})`}
+                      </span>
+                    </button>
+
+                    {/* Status & Feedback Message */}
+                    {nfcMessage && (
+                      <div
+                        className={`mt-4 p-3 rounded-xl text-xs font-medium border text-left flex items-start gap-2 ${
+                          nfcStatus === "SUCCESS"
+                            ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                            : nfcStatus === "ERROR"
+                            ? "bg-rose-950/60 border-rose-500/40 text-rose-300"
+                            : "bg-blue-950/60 border-blue-500/40 text-blue-300"
+                        }`}
+                      >
+                        {nfcStatus === "SUCCESS" ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        ) : nfcStatus === "ERROR" ? (
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        ) : (
+                          <Radio className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 animate-spin" />
+                        )}
+                        <span className="leading-relaxed">{nfcMessage}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tech Specs Footer */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-[11px] text-slate-400">
+                  <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-2.5">
+                    <span className="text-slate-300 font-bold block">✓ NTAG213 / 215 / 216</span>
+                    NFC Forum Type 2 compliant chips
+                  </div>
+                  <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-2.5">
+                    <span className="text-slate-300 font-bold block">✓ Zero App Required</span>
+                    Native instant tap on iOS &amp; Android
+                  </div>
+                  <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-2.5">
+                    <span className="text-slate-300 font-bold block">✓ Safe Dynamic Binding</span>
+                    Destination updates remotely in cloud
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: RAPID BATCH PROGRAMMING QUEUE */}
+            {nfcTab === "BATCH" && (
+              <div className="space-y-4">
+                {/* Queue Filter & Progress Header */}
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 mb-3">
+                    <div>
+                      <div className="text-xs font-semibold text-slate-400">Queue Source:</div>
+                      <div className="font-bold text-white text-sm">
+                        {selectedTagBatch !== "ALL"
+                          ? `Batch: ${selectedTagBatch}`
+                          : selectedTagIds.length > 0
+                          ? `Selected Tags (${selectedTagIds.length} tags)`
+                          : `All Hardware (${tags.length} total)`}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-300 flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={nfcAutoAdvance}
+                          onChange={(e) => setNfcAutoAdvance(e.target.checked)}
+                          className="rounded border-slate-700 bg-slate-900 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>Auto-advance on write</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  {nfcBatchQueue.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                        <span>
+                          Tag <strong>{nfcBatchIndex + 1}</strong> of <strong>{nfcBatchQueue.length}</strong>
+                        </span>
+                        <span className="font-semibold text-purple-400">
+                          {nfcBatchSuccessCount} Programmed ({Math.round(((nfcBatchIndex) / nfcBatchQueue.length) * 100)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, Math.round(((nfcBatchIndex + 1) / nfcBatchQueue.length) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Current Active Queue Tag Card */}
+                {nfcBatchQueue.length > 0 && nfcBatchQueue[nfcBatchIndex] ? (
+                  <div className="bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800 rounded-3xl p-6 text-center">
+                    <div className="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 mb-2">
+                      READY TO WRITE TAG #{nfcBatchIndex + 1}
+                    </div>
+
+                    <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-wider my-1">
+                      {nfcBatchQueue[nfcBatchIndex].tagCode}
+                    </div>
+
+                    <div className="text-xs text-slate-400 mb-4">
+                      {nfcBatchQueue[nfcBatchIndex].status === "ASSIGNED"
+                        ? `Client: ${nfcBatchQueue[nfcBatchIndex].business?.name}`
+                        : "In Stock (Unassigned Hardware)"}
+                    </div>
+
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-2 text-xs font-mono text-emerald-400 mb-4 max-w-md mx-auto truncate">
+                      {typeof window !== "undefined" ? window.location.origin : ""}/t/{nfcBatchQueue[nfcBatchIndex].tagCode}
+                    </div>
+
+                    {/* Big Action Button for Current Batch Tag */}
+                    <button
+                      type="button"
+                      disabled={nfcStatus === "WRITING"}
+                      onClick={() => handleWriteNfcBatchTag(nfcBatchIndex)}
+                      className={`w-full max-w-md mx-auto py-3.5 px-6 rounded-2xl font-black text-sm tracking-wide shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        nfcStatus === "WRITING"
+                          ? "bg-purple-700 text-white animate-pulse"
+                          : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white active:scale-98"
+                      }`}
+                    >
+                      <Radio className="w-4 h-4" />
+                      <span>
+                        {nfcStatus === "WRITING"
+                          ? `Hold Tag #${nfcBatchIndex + 1} to Phone...`
+                          : `Write Tag #${nfcBatchIndex + 1} (${nfcBatchQueue[nfcBatchIndex].tagCode})`}
+                      </span>
+                    </button>
+
+                    {/* Step Navigation Controls */}
+                    <div className="flex items-center justify-center gap-3 mt-4 text-xs">
+                      <button
+                        type="button"
+                        disabled={nfcBatchIndex === 0}
+                        onClick={() => {
+                          setNfcBatchIndex((prev) => Math.max(0, prev - 1));
+                          setNfcStatus("IDLE");
+                          setNfcMessage("");
+                        }}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 rounded-xl font-semibold border border-slate-700 cursor-pointer"
+                      >
+                        ◀ Previous Tag
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={nfcBatchIndex >= nfcBatchQueue.length - 1}
+                        onClick={() => {
+                          setNfcBatchIndex((prev) => Math.min(nfcBatchQueue.length - 1, prev + 1));
+                          setNfcStatus("IDLE");
+                          setNfcMessage("");
+                        }}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 rounded-xl font-semibold border border-slate-700 cursor-pointer"
+                      >
+                        Skip to Next Tag ▶
+                      </button>
+                    </div>
+
+                    {/* Feedback message */}
+                    {nfcMessage && (
+                      <div
+                        className={`mt-4 max-w-md mx-auto p-3 rounded-xl text-xs font-medium border text-left flex items-start gap-2 ${
+                          nfcStatus === "SUCCESS"
+                            ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                            : nfcStatus === "ERROR"
+                            ? "bg-rose-950/60 border-rose-500/40 text-rose-300"
+                            : "bg-blue-950/60 border-blue-500/40 text-blue-300"
+                        }`}
+                      >
+                        {nfcStatus === "SUCCESS" ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        ) : nfcStatus === "ERROR" ? (
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        ) : (
+                          <Radio className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 animate-spin" />
+                        )}
+                        <span className="leading-relaxed">{nfcMessage}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-slate-950 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+                    No hardware tags found in this batch queue.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: TAG INSPECTOR & DIAGNOSTIC READER */}
+            {nfcTab === "READ" && (
+              <div className="space-y-4">
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 text-center">
+                  <h4 className="text-sm font-bold text-white mb-1">Physical NFC Tag Inspector</h4>
+                  <p className="text-xs text-slate-400 mb-4 max-w-md mx-auto">
+                    Inspect any physical standee, card, or coin. Reads chip UID, NDEF records, and checks if registered in your inventory.
+                  </p>
+
+                  <button
+                    type="button"
+                    disabled={nfcStatus === "SCANNING"}
+                    onClick={handleStartNfcRead}
+                    className={`py-3 px-6 rounded-2xl font-black text-xs sm:text-sm tracking-wide shadow-xl inline-flex items-center gap-2 transition-all cursor-pointer ${
+                      nfcStatus === "SCANNING"
+                        ? "bg-blue-600 text-white animate-pulse"
+                        : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white active:scale-98"
+                    }`}
+                  >
+                    <Radio className="w-4 h-4" />
+                    <span>{nfcStatus === "SCANNING" ? "Listening for NFC Tap..." : "Start NFC Scan"}</span>
+                  </button>
+
+                  {nfcMessage && (
+                    <div className="mt-3 text-xs text-slate-400 font-mono">
+                      {nfcMessage}
+                    </div>
+                  )}
+                </div>
+
+                {/* Diagnostic Result Card */}
+                {nfcReadResult && (
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 animate-in fade-in">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                      <span className="text-xs font-bold text-slate-400">Chip Hardware Serial Number (UID):</span>
+                      <span className="font-mono text-sm font-bold text-cyan-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                        {nfcReadResult.serialNumber || "N/A"}
+                      </span>
+                    </div>
+
+                    {/* Matched Database Status */}
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 block mb-1.5">Smart Review System Link:</span>
+                      {nfcReadResult.matchedTag ? (
+                        <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Verified Smart Review Hardware [{nfcReadResult.matchedTag.tagCode}]</span>
+                            </div>
+                            <div className="text-[11px] text-slate-300 mt-0.5">
+                              {nfcReadResult.matchedTag.status === "ASSIGNED"
+                                ? `Assigned to: ${nfcReadResult.matchedTag.business?.name}`
+                                : "In Stock • Unassigned"}
+                            </div>
+                          </div>
+                          <a
+                            href={`/t/${nfcReadResult.matchedTag.tagCode}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shrink-0"
+                          >
+                            Open Funnel
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-amber-950/40 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>External or unlinked tag. You can program it with any tag code from the 1-Tap Writer tab.</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* NDEF Records Read */}
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 block mb-1.5">NDEF Records on Chip:</span>
+                      {nfcReadResult.records && nfcReadResult.records.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {nfcReadResult.records.map((rec, i) => (
+                            <div key={i} className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl font-mono text-xs flex items-center justify-between gap-2">
+                              <span className="text-slate-400 text-[10px] px-1.5 py-0.5 bg-slate-800 rounded">
+                                {rec.recordType}
+                              </span>
+                              <span className="text-white truncate flex-1">{rec.data}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(rec.data);
+                                  setSuccessMsg("Copied record payload!");
+                                }}
+                                className="p-1 text-slate-400 hover:text-white"
+                                title="Copy record data"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-500 italic">No NDEF records detected (blank tag).</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: NFC TOOLS APP (WAKDEV) & HARDWARE GUIDE */}
+            {nfcTab === "GUIDE" && (
+              <div className="space-y-4 text-xs text-slate-300">
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5">
+                  <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-emerald-400" />
+                    <span>How to Program Tags with the Free "NFC Tools" Mobile App</span>
+                  </h4>
+                  <p className="text-slate-400 mb-4 leading-relaxed">
+                    If you prefer writing physical chips with your smartphone (iPhone or Android), you can use the industry-standard free <strong>NFC Tools</strong> app (by wakdev).
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                      <div className="font-bold text-white mb-1">Android Phones:</div>
+                      <p className="text-slate-400 text-[11px] mb-2">Search "NFC Tools" on Google Play Store or tap below.</p>
+                      <a
+                        href="https://play.google.com/store/apps/details?id=com.wakdev.wdnfc"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Google Play Store Link</span>
+                      </a>
+                    </div>
+
+                    <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl">
+                      <div className="font-bold text-white mb-1">Apple iPhones (iOS):</div>
+                      <p className="text-slate-400 text-[11px] mb-2">Search "NFC Tools" on Apple App Store or tap below.</p>
+                      <a
+                        href="https://apps.apple.com/app/nfc-tools/id1252962749"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Apple App Store Link</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Step by Step Guide */}
+                  <div className="space-y-2 border-t border-slate-800 pt-3">
+                    <div className="font-bold text-white text-xs">Step-by-Step Programming Instructions:</div>
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-400 text-[11px] leading-relaxed">
+                      <li>Open the <strong>NFC Tools</strong> app on your smartphone.</li>
+                      <li>
+                        Tap on the <strong className="text-white">Write</strong> tab &rarr; tap{" "}
+                        <strong className="text-white">Add a record</strong>.
+                      </li>
+                      <li>
+                        Select <strong className="text-white">URL / URI</strong> from the list.
+                      </li>
+                      <li>
+                        Enter or paste your tag's direct link (e.g.{" "}
+                        <span className="font-mono text-purple-300">
+                          {typeof window !== "undefined" ? window.location.origin : ""}/t/TAG_CODE
+                        </span>
+                        ).
+                      </li>
+                      <li>
+                        Tap <strong className="text-white">OK</strong>, then tap the big blue{" "}
+                        <strong className="text-white">Write / 1 record</strong> button.
+                      </li>
+                      <li>
+                        Touch your NFC chip, sticker, card, or acrylic standee to the top back of your phone until it chirps!
+                      </li>
+                      <li>
+                        <em>(Optional Security Step):</em> Under <strong className="text-white">Other</strong> &rarr;{" "}
+                        <strong className="text-white">Lock tag</strong>, you can lock the chip as read-only so customers cannot overwrite it.
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Chip Hardware Guide & CSV Bulk Export */}
+                <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Bulk Programming &amp; CSV Export</h4>
+                      <p className="text-slate-400 text-[11px]">Download pre-formatted spreadsheet for NFC Tools Pro batch writer.</p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportNfcCsv(selectedTagBatch)}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download NFC Tools CSV</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-400">
+                    <div>
+                      <strong className="text-white block mb-0.5">Recommended Chips:</strong>
+                      <strong>NTAG213</strong> is the industry standard (144 bytes user memory). Our review URLs only require ~50 bytes, making NTAG213 the fastest and most cost-effective.
+                    </div>
+                    <div>
+                      <strong className="text-white block mb-0.5">On-Metal Anti-Interference:</strong>
+                      If applying NFC stickers onto metal standees or aluminium plates, ensure you purchase <strong>Anti-Metal Ferrite</strong> shielded tags so metal doesn't block the RF field.
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
