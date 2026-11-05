@@ -38,16 +38,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.role === "AGENT" || session.role === "FIELD_AGENT") {
-      return NextResponse.json(
-        { error: "Agents have read-only permissions and cannot modify business settings. Contact Super Admin to request updates." },
-        { status: 403 }
-      );
-    }
+    const isAgent = session.role === "AGENT" || session.role === "FIELD_AGENT";
+    const isElevated = session.role === "SUPER_ADMIN" || isAgent;
 
     const { searchParams } = new URL(req.url);
     const requestedBizId = searchParams.get("businessId");
-    const isElevated = session.role === "SUPER_ADMIN";
 
     let businessId = session.businessId;
     if (isElevated && requestedBizId) {
@@ -59,6 +54,32 @@ export async function PUT(req: NextRequest) {
 
     if (!businessId) {
       return NextResponse.json({ error: "No business found" }, { status: 404 });
+    }
+
+    const body = await req.json();
+
+    // If agent, allow updating Google Review Link and related review coordinates only
+    if (isAgent) {
+      const { googleReviewUrl, googlePlaceId, tripadvisorReviewUrl, reviewPlatform } = body;
+
+      if (googleReviewUrl === undefined && googlePlaceId === undefined && tripadvisorReviewUrl === undefined) {
+        return NextResponse.json(
+          { error: "Agents only have permission to edit the Google Review Link / Review configuration." },
+          { status: 403 }
+        );
+      }
+
+      const updated = await db.business.update({
+        where: { id: businessId },
+        data: {
+          ...(googleReviewUrl !== undefined && { googleReviewUrl: googleReviewUrl?.trim() || "" }),
+          ...(googlePlaceId !== undefined && { googlePlaceId: googlePlaceId?.trim() || null }),
+          ...(tripadvisorReviewUrl !== undefined && { tripadvisorReviewUrl: tripadvisorReviewUrl?.trim() || null }),
+          ...(reviewPlatform && { reviewPlatform }),
+        },
+      });
+
+      return NextResponse.json({ success: true, business: updated });
     }
 
     const {

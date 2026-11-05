@@ -40,6 +40,7 @@ import {
   Users,
   ArrowLeft,
   Briefcase,
+  Link2,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
 import { convertFromInr, formatCurrency, isCurrencyStrongerThanInr, CURRENCY_METADATA } from "@/lib/currency";
@@ -173,6 +174,10 @@ export default function BusinessDashboardPage() {
   // Agent Onboarded Clients & Creation State
   const [viewingClientDashboardId, setViewingClientDashboardId] = useState<string | null>(null);
   const [onboardedClients, setOnboardedClients] = useState<any[]>([]);
+  const [editingReviewLink, setEditingReviewLink] = useState("");
+  const [savingReviewLink, setSavingReviewLink] = useState(false);
+  const [reviewLinkSaveSuccess, setReviewLinkSaveSuccess] = useState(false);
+  const [reviewLinkSaveError, setReviewLinkSaveError] = useState<string | null>(null);
   const [clientMetrics, setClientMetrics] = useState({ totalClients: 0, activeSubscriptions: 0, totalStandeesDeployed: 0 });
   const [loadingClients, setLoadingClients] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -1099,25 +1104,62 @@ export default function BusinessDashboardPage() {
     }, 350);
   };
 
+  const handleSaveClientReviewLink = async () => {
+    if (!selectedClientForView) return;
+    setSavingReviewLink(true);
+    setReviewLinkSaveSuccess(false);
+    setReviewLinkSaveError(null);
+    try {
+      const res = await fetch(`/api/dashboard/settings?businessId=${encodeURIComponent(selectedClientForView.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ googleReviewUrl: editingReviewLink.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update Google Review link");
+      setReviewLinkSaveSuccess(true);
+      setSelectedClientForView({ ...selectedClientForView, googleReviewUrl: editingReviewLink.trim() });
+      fetchOnboardedClients();
+      setTimeout(() => setReviewLinkSaveSuccess(false), 4000);
+    } catch (err: any) {
+      setReviewLinkSaveError(err.message || "Failed to update review link");
+    } finally {
+      setSavingReviewLink(false);
+    }
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
     setSettingsSaved(false);
 
     try {
-      const res = await fetch("/api/dashboard/settings", {
+      const targetUrl = viewingClientDashboardId
+        ? `/api/dashboard/settings?businessId=${encodeURIComponent(viewingClientDashboardId)}`
+        : "/api/dashboard/settings";
+      const res = await fetch(targetUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          tripadvisorReviewUrl: formData.tripadvisorReviewUrl,
-          reviewPlatform: formData.reviewPlatform,
-        }),
+        body: JSON.stringify(
+          isAgent
+            ? {
+                googleReviewUrl: formData.googleReviewUrl,
+                googlePlaceId: formData.googlePlaceId,
+                tripadvisorReviewUrl: formData.tripadvisorReviewUrl,
+                reviewPlatform: formData.reviewPlatform,
+              }
+            : {
+                ...formData,
+                tripadvisorReviewUrl: formData.tripadvisorReviewUrl,
+                reviewPlatform: formData.reviewPlatform,
+              }
+        ),
       });
       if (res.ok) {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
-        fetchData();
+        fetchData(viewingClientDashboardId || undefined);
+        fetchOnboardedClients();
       }
     } catch (err) {
       console.error(err);
@@ -1568,10 +1610,28 @@ export default function BusinessDashboardPage() {
                                   type="button"
                                   onClick={() => {
                                     setSelectedClientForView(client);
+                                    setEditingReviewLink(client.googleReviewUrl || "");
+                                    setReviewLinkSaveSuccess(false);
+                                    setReviewLinkSaveError(null);
+                                    setClientViewModalOpen(true);
+                                  }}
+                                  className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                                  title="Edit Google Review Link"
+                                >
+                                  <Link2 className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedClientForView(client);
+                                    setEditingReviewLink(client.googleReviewUrl || "");
+                                    setReviewLinkSaveSuccess(false);
+                                    setReviewLinkSaveError(null);
                                     setClientViewModalOpen(true);
                                   }}
                                   className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                                  title="View Customer Details (Read-Only)"
+                                  title="View Customer Details &amp; Hardware Info"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
@@ -2498,12 +2558,17 @@ export default function BusinessDashboardPage() {
             </div>
 
             {isAgent && (
-              <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
-                <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="mb-6 p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold">Agent Read-Only Access</h4>
-                  <p className="text-[11px] text-amber-700 mt-0.5">
-                    As an Agent, you can view this customer&apos;s details, configuration, and SEO keywords below, but you cannot edit or overwrite them. To request modifications, contact Super Admin.
+                  <h4 className="text-xs font-bold flex items-center gap-1.5">
+                    <span>Field Agent Authorized Edit Mode</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      Google Review Link Editable
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-blue-700 mt-0.5">
+                    As an authorized Agent, you can edit and update this client&apos;s <strong>Google Review Link</strong> below and click <strong>&quot;Save Google Review Link&quot;</strong>. Core company registration details remain protected.
                   </p>
                 </div>
               </div>
@@ -2740,27 +2805,20 @@ export default function BusinessDashboardPage() {
               </div>
 
               <div className="pt-4 flex justify-end">
-                {isAgent ? (
-                  <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Save Disabled for Agents (Read-Only)</span>
-                  </div>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={savingSettings}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 active:scale-95"
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                 >
                   {savingSettings ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Save Changes</span>
+                      <span>{isAgent ? "Save Google Review Link" : "Save Changes"}</span>
                     </>
                   )}
                 </button>
-                )}
               </div>
             </form>
           </div>
@@ -3761,14 +3819,61 @@ export default function BusinessDashboardPage() {
                       </a>
                     </div>
                   </div>
-                  {selectedClientForView.googleReviewUrl && (
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Google Review URL</span>
-                      <p className="text-[11px] text-slate-700 font-mono truncate mt-0.5">
-                        {selectedClientForView.googleReviewUrl}
-                      </p>
+                  <div className="pt-2 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Google Review URL (Editable by Agent)</span>
+                      </span>
+                      {editingReviewLink && (
+                        <a
+                          href={editingReviewLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Test Link</span>
+                        </a>
+                      )}
                     </div>
-                  )}
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={editingReviewLink}
+                        onChange={(e) => setEditingReviewLink(e.target.value)}
+                        placeholder="https://g.page/r/.../review or https://search.google.com/local/writereview?placeid=..."
+                        className="flex-1 text-xs p-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingReviewLink || !editingReviewLink.trim()}
+                        onClick={handleSaveClientReviewLink}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                      >
+                        {savingReviewLink ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Save Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {reviewLinkSaveSuccess && (
+                      <p className="mt-1 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Google Review Link updated successfully!</span>
+                      </p>
+                    )}
+                    {reviewLinkSaveError && (
+                      <p className="mt-1 text-[11px] text-rose-600 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{reviewLinkSaveError}</span>
+                      </p>
+                    )}
+                  </div>
                   {selectedClientForView.keywords && (
                     <div>
                       <span className="text-[10px] text-slate-400 block">Target SEO Keywords</span>
@@ -3809,9 +3914,9 @@ export default function BusinessDashboardPage() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <Lock className="w-3 h-3" />
-                <span>Edits locked for Agent role</span>
+              <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                <Sparkles className="w-3 h-3 text-emerald-600" />
+                <span>Google Review Link can be updated by Agent anytime</span>
               </span>
               <button
                 type="button"
