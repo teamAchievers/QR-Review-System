@@ -1691,7 +1691,7 @@ export default function MasterAdminPage() {
       </g>`;
     });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="100%" height="100%">
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="100%" height="auto" style="width: 100%; height: auto; display: block;">
       <defs>
         <linearGradient id="standeeGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#2563eb" />
@@ -1780,7 +1780,7 @@ export default function MasterAdminPage() {
       </g>`;
     });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="100%" height="100%">
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="100%" height="auto" style="width: 100%; height: auto; display: block;">
       <defs>
         <linearGradient id="standeeGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#2563eb" />
@@ -1884,9 +1884,9 @@ export default function MasterAdminPage() {
               break-after: avoid;
             }
             .print-sheet-page svg {
-              width: 100%;
-              height: 100%;
-              display: block;
+              width: 100% !important;
+              height: 100% !important;
+              display: block !important;
             }
           </style>
         </head>
@@ -6943,13 +6943,11 @@ export default function MasterAdminPage() {
                   </div>
 
                   {/* 100% Exact 1:1 Vector SVG Sheet Preview */}
-                  <div className="flex items-center justify-center p-3 sm:p-5 bg-slate-100/70 rounded-3xl border border-slate-200">
+                  <div className="flex items-center justify-center p-2 sm:p-4 bg-slate-100/70 rounded-3xl border border-slate-200">
                     <div
-                      className="bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden shrink-0 transition-transform [&>svg]:w-full [&>svg]:h-full [&>svg]:block"
+                      className="bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden w-full mx-auto"
                       style={{
-                        width: isLandscape ? "720px" : "520px",
-                        maxWidth: "100%",
-                        aspectRatio: isLandscape ? "297/210" : "210/297",
+                        maxWidth: isLandscape ? "720px" : "500px",
                       }}
                       dangerouslySetInnerHTML={{ __html: currentSheetSvg }}
                     />
