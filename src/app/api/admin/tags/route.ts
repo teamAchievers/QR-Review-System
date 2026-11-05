@@ -205,7 +205,7 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// DELETE: Delete a tag
+// DELETE: Delete a tag, multiple tags in bulk, or an entire batch
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getSession();
@@ -215,16 +215,61 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const batchCode = searchParams.get("batchCode");
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing tag ID" }, { status: 400 });
+    let ids: string[] = [];
+    try {
+      const body = await req.json().catch(() => ({}));
+      if (body?.ids && Array.isArray(body.ids)) {
+        ids = body.ids;
+      }
+    } catch {}
+
+    if (id) {
+      await db.smartTag.delete({ where: { id } });
+      return NextResponse.json({ success: true, message: "Tag deleted successfully" });
     }
 
-    await db.smartTag.delete({ where: { id } });
+    if (ids.length > 0) {
+      const deleted = await db.smartTag.deleteMany({
+        where: { id: { in: ids } },
+      });
+      return NextResponse.json({
+        success: true,
+        count: deleted.count,
+        message: `Successfully deleted ${deleted.count} hardware tag(s).`,
+      });
+    }
 
-    return NextResponse.json({ success: true, message: "Tag deleted successfully" });
+    if (batchCode) {
+      const where: any = { batchCode };
+      const status = searchParams.get("status");
+      if (status && status !== "ALL") {
+        where.status = status;
+      }
+      const deleted = await db.smartTag.deleteMany({ where });
+      return NextResponse.json({
+        success: true,
+        count: deleted.count,
+        message: `Successfully deleted ${deleted.count} tag(s)${where.status ? ` with status ${where.status}` : ''} in batch "${batchCode}".`,
+      });
+    }
+
+    const deleteAllUnassigned = searchParams.get("deleteAllUnassigned") === "true";
+    if (deleteAllUnassigned) {
+      const deleted = await db.smartTag.deleteMany({
+        where: { status: "UNASSIGNED" },
+      });
+      return NextResponse.json({
+        success: true,
+        count: deleted.count,
+        message: `Successfully deleted all ${deleted.count} unassigned tag(s).`,
+      });
+    }
+
+    return NextResponse.json({ error: "Missing tag ID(s) or batch code" }, { status: 400 });
   } catch (err: any) {
     console.error("Delete tag error:", err);
-    return NextResponse.json({ error: "Failed to delete tag" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete tag(s)" }, { status: 500 });
   }
 }

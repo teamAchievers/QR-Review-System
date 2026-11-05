@@ -922,6 +922,14 @@ export default function MasterAdminPage() {
   const [selectedTagStatus, setSelectedTagStatus] = useState("ALL");
   const [tagSearch, setTagSearch] = useState("");
 
+  // Bulk Selection & Delete State
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [deletingBulkTags, setDeletingBulkTags] = useState(false);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<"BATCH" | "SELECTED" | "ALL_UNASSIGNED">("BATCH");
+  const [bulkDeleteBatchCode, setBulkDeleteBatchCode] = useState<string>("");
+  const [bulkDeleteOnlyUnassigned, setBulkDeleteOnlyUnassigned] = useState(false);
+
   // Batch Generation Modal State
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [generatingBatch, setGeneratingBatch] = useState(false);
@@ -1062,6 +1070,207 @@ export default function MasterAdminPage() {
       }
     } catch {
       alert("Error unlinking tag");
+    }
+  };
+
+  const handleToggleSelectTag = (id: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllVisibleTags = () => {
+    if (tags.length === 0) return;
+    if (selectedTagIds.length === tags.length) {
+      setSelectedTagIds([]);
+    } else {
+      setSelectedTagIds(tags.map((t) => t.id));
+    }
+  };
+
+  const handleBulkDeleteTags = async () => {
+    if (selectedTagIds.length === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete ${selectedTagIds.length} selected hardware tag(s)? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingBulkTags(true);
+    try {
+      const res = await fetch("/api/admin/tags", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedTagIds }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message || `Deleted ${selectedTagIds.length} tags`);
+        setSelectedTagIds([]);
+        fetchTags();
+      } else {
+        alert(data.error || "Failed to delete selected tags");
+      }
+    } catch {
+      alert("Error deleting selected tags");
+    } finally {
+      setDeletingBulkTags(false);
+    }
+  };
+
+  const handleDeleteEntireBatch = async (batchCode: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete all tags in batch "${batchCode}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/tags?batchCode=${encodeURIComponent(batchCode)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message || `Deleted all tags in batch ${batchCode}`);
+        setSelectedTagIds([]);
+        setSelectedTagBatch("ALL");
+        fetchTags(undefined, "ALL", undefined);
+      } else {
+        alert(data.error || "Failed to delete batch");
+      }
+    } catch {
+      alert("Error deleting batch");
+    }
+  };
+
+  const handleExecuteModalBulkDelete = async () => {
+    if (bulkDeleteMode === "SELECTED") {
+      if (selectedTagIds.length === 0) {
+        alert("No tags are selected. Please select tags using the checkboxes in the table.");
+        return;
+      }
+      await handleBulkDeleteTags();
+      setBulkDeleteModalOpen(false);
+      return;
+    }
+
+    if (bulkDeleteMode === "ALL_UNASSIGNED") {
+      if (
+        !confirm(
+          "Are you sure you want to permanently delete ALL unassigned / in-stock blank tags? Active tags assigned to businesses will be preserved."
+        )
+      ) {
+        return;
+      }
+      setDeletingBulkTags(true);
+      try {
+        const res = await fetch("/api/admin/tags?deleteAllUnassigned=true", {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setSuccessMsg(data.message || "All unassigned tags deleted successfully");
+          setSelectedTagIds([]);
+          fetchTags();
+          setBulkDeleteModalOpen(false);
+        } else {
+          alert(data.error || "Failed to delete unassigned tags");
+        }
+      } catch {
+        alert("Error deleting unassigned tags");
+      } finally {
+        setDeletingBulkTags(false);
+      }
+      return;
+    }
+
+    if (bulkDeleteMode === "BATCH") {
+      const batch = bulkDeleteBatchCode || (tagBatches.length > 0 ? tagBatches[0] : "");
+      if (!batch) {
+        alert("Please select a batch to delete.");
+        return;
+      }
+      const promptText = bulkDeleteOnlyUnassigned
+        ? `Are you sure you want to delete only UNASSIGNED tags in batch "${batch}"?`
+        : `Are you sure you want to delete ALL tags in batch "${batch}"? This action cannot be undone.`;
+      if (!confirm(promptText)) return;
+
+      setDeletingBulkTags(true);
+      try {
+        const url = `/api/admin/tags?batchCode=${encodeURIComponent(batch)}${
+          bulkDeleteOnlyUnassigned ? "&status=UNASSIGNED" : ""
+        }`;
+        const res = await fetch(url, { method: "DELETE" });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setSuccessMsg(data.message || `Deleted tags in batch ${batch}`);
+          setSelectedTagIds([]);
+          if (selectedTagBatch === batch) setSelectedTagBatch("ALL");
+          fetchTags();
+          setBulkDeleteModalOpen(false);
+        } else {
+          alert(data.error || "Failed to delete batch tags");
+        }
+      } catch {
+        alert("Error deleting batch tags");
+      } finally {
+        setDeletingBulkTags(false);
+      }
+    }
+  };
+
+  const handleExportSelectedNfcCsv = () => {
+    const listToExport = tags.filter((t) => selectedTagIds.includes(t.id));
+    if (listToExport.length === 0) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
+    const csvHeaders = ["TagCode", "Type", "BatchCode", "Status", "AssignedBusiness", "PlacementLabel", "DirectNfcUrl"];
+    const rows = listToExport.map((t) => [
+      t.tagCode,
+      t.type,
+      t.batchCode,
+      t.status,
+      t.business ? `"${t.business.name.replace(/"/g, '""')}"` : "UNASSIGNED",
+      t.label ? `"${t.label.replace(/"/g, '""')}"` : "",
+      `${origin}/t/${t.tagCode}`,
+    ]);
+    const csvContent = [csvHeaders.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `NFC_Tags_Selected_${selectedTagIds.length}_Export.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintSelectedSheet = async () => {
+    const listToPrint = tags.filter((t) => selectedTagIds.includes(t.id));
+    if (listToPrint.length === 0) return;
+    setPrintSheetModalOpen(true);
+    setPreparingSheet(true);
+    try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://smartreview.io";
+      const generated: { tagCode: string; url: string; qrDataUrl: string }[] = [];
+      for (const t of listToPrint.slice(0, 48)) {
+        try {
+          const res = await fetch(`/api/qr/tag?tagCode=${t.tagCode}`);
+          const data = await res.json();
+          if (data.qrDataUrl) {
+            generated.push({
+              tagCode: t.tagCode,
+              url: data.targetUrl || `${origin}/t/${t.tagCode}`,
+              qrDataUrl: data.qrDataUrl,
+            });
+          }
+        } catch {}
+      }
+      setBatchQrList(generated);
+    } catch {
+      alert("Error preparing printable batch sheet");
+    } finally {
+      setPreparingSheet(false);
     }
   };
 
@@ -2757,6 +2966,7 @@ export default function MasterAdminPage() {
                     value={selectedTagBatch}
                     onChange={(e) => {
                       setSelectedTagBatch(e.target.value);
+                      setSelectedTagIds([]);
                       fetchTags(undefined, e.target.value, undefined);
                     }}
                     className="text-xs p-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none cursor-pointer"
@@ -2766,6 +2976,18 @@ export default function MasterAdminPage() {
                       <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
+
+                  {selectedTagBatch !== "ALL" && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEntireBatch(selectedTagBatch)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 flex items-center gap-1 cursor-pointer transition-colors"
+                      title={`Delete all tags in batch ${selectedTagBatch}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete Batch</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Status Filter */}
@@ -2794,8 +3016,8 @@ export default function MasterAdminPage() {
                 </div>
               </div>
 
-              {/* Action Toolbar with Print Sheet, Export NFC, and Mint Batch */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Action Toolbar with Print Sheet, Export NFC, Bulk Delete, and Mint Batch */}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handlePreparePrintSheet}
@@ -2814,6 +3036,36 @@ export default function MasterAdminPage() {
                 >
                   <Download className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Export NFC CSV</span>
+                </button>
+
+                {/* Bulk Delete Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedTagIds.length > 0) {
+                      setBulkDeleteMode("SELECTED");
+                    } else if (selectedTagBatch !== "ALL") {
+                      setBulkDeleteMode("BATCH");
+                      setBulkDeleteBatchCode(selectedTagBatch);
+                    } else {
+                      setBulkDeleteMode("BATCH");
+                      if (tagBatches.length > 0) setBulkDeleteBatchCode(tagBatches[0]);
+                    }
+                    setBulkDeleteModalOpen(true);
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+                    selectedTagIds.length > 0
+                      ? "bg-rose-600 hover:bg-rose-500 text-white shadow-md active:scale-95 animate-pulse"
+                      : "bg-slate-900 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 border border-rose-500/30"
+                  }`}
+                  title="Bulk Delete Options (delete selected, batch, or unassigned tags)"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>
+                    {selectedTagIds.length > 0
+                      ? `Bulk Delete (${selectedTagIds.length})`
+                      : "Bulk Delete"}
+                  </span>
                 </button>
 
                 <button
@@ -2853,6 +3105,15 @@ export default function MasterAdminPage() {
                   <table className="w-full text-left text-xs text-slate-300">
                     <thead className="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700/80 uppercase text-[10px] tracking-wider">
                       <tr>
+                        <th className="py-3 px-3 w-10 text-center">
+                          <input
+                            type="checkbox"
+                            checked={tags.length > 0 && selectedTagIds.length === tags.length}
+                            onChange={handleSelectAllVisibleTags}
+                            className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            title="Select / Deselect all tags"
+                          />
+                        </th>
                         <th className="py-3 px-4">Tag Serial Code</th>
                         <th className="py-3 px-4">Batch &amp; Type</th>
                         <th className="py-3 px-4">Status</th>
@@ -2865,8 +3126,22 @@ export default function MasterAdminPage() {
                       {tags.map((t) => {
                         const origin = typeof window !== "undefined" ? window.location.origin : "";
                         const directUrl = `${origin}/t/${t.tagCode}`;
+                        const isChecked = selectedTagIds.includes(t.id);
                         return (
-                          <tr key={t.id} className="hover:bg-slate-700/30 transition-colors">
+                          <tr
+                            key={t.id}
+                            className={`transition-colors ${
+                              isChecked ? "bg-blue-900/20 hover:bg-blue-900/30" : "hover:bg-slate-700/30"
+                            }`}
+                          >
+                            <td className="py-3 px-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleSelectTag(t.id)}
+                                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              />
+                            </td>
                             <td className="py-3 px-4 font-mono font-bold text-white">
                               <div className="flex items-center gap-2">
                                 <span className="px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 text-blue-300 font-bold">
@@ -2998,6 +3273,63 @@ export default function MasterAdminPage() {
                 </div>
               )}
             </div>
+
+            {/* Floating Bulk Action Bar */}
+            {selectedTagIds.length > 0 && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border-2 border-blue-500/50 text-white rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-md flex items-center gap-4 animate-in slide-in-from-bottom-5">
+                <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
+                    {selectedTagIds.length}
+                  </span>
+                  <span className="text-xs font-bold text-slate-200">Selected</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBulkDeleteTags}
+                    disabled={deletingBulkTags}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  >
+                    {deletingBulkTags ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Selected ({selectedTagIds.length})</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportSelectedNfcCsv}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrintSelectedSheet}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Sheet</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTagIds([])}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer ml-1"
+                    title="Clear selection"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4992,6 +5324,195 @@ export default function MasterAdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BULK DELETE HARDWARE & QR MODAL ================= */}
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Bulk Delete Hardware Tags</h3>
+                  <p className="text-xs text-slate-400">Remove tags, wipe batches, or clear unused stock</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkDeleteModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs mb-5">
+              {/* Option 1: Selected Tags */}
+              <label
+                onClick={() => setBulkDeleteMode("SELECTED")}
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                  bulkDeleteMode === "SELECTED"
+                    ? "bg-rose-950/20 border-rose-500/60 ring-1 ring-rose-500/40"
+                    : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="bulkDeleteMode"
+                  checked={bulkDeleteMode === "SELECTED"}
+                  onChange={() => setBulkDeleteMode("SELECTED")}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-xs">
+                      Delete Selected Tags ({selectedTagIds.length})
+                    </span>
+                    {selectedTagIds.length > 0 && (
+                      <span className="text-[10px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.5 rounded-full">
+                        {selectedTagIds.length} Chosen
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {selectedTagIds.length > 0
+                      ? "Permanently delete the specific tags checked in the inventory table."
+                      : "No tags currently checked in the table. Select tags using the row checkboxes first."}
+                  </p>
+                </div>
+              </label>
+
+              {/* Option 2: Delete by Batch */}
+              <label
+                onClick={() => setBulkDeleteMode("BATCH")}
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                  bulkDeleteMode === "BATCH"
+                    ? "bg-rose-950/20 border-rose-500/60 ring-1 ring-rose-500/40"
+                    : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="bulkDeleteMode"
+                  checked={bulkDeleteMode === "BATCH"}
+                  onChange={() => setBulkDeleteMode("BATCH")}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <span className="font-bold text-white text-xs">Delete by Batch Code</span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Wipe pre-minted tags associated with a specific production batch.
+                    </p>
+                  </div>
+
+                  {bulkDeleteMode === "BATCH" && (
+                    <div className="pt-1.5 space-y-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Select Batch to Delete
+                        </label>
+                        <select
+                          value={bulkDeleteBatchCode || (tagBatches.length > 0 ? tagBatches[0] : "")}
+                          onChange={(e) => setBulkDeleteBatchCode(e.target.value)}
+                          className="w-full text-xs p-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                        >
+                          {tagBatches.length === 0 ? (
+                            <option value="">No batches found</option>
+                          ) : (
+                            tagBatches.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+
+                      <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          checked={bulkDeleteOnlyUnassigned}
+                          onChange={(e) => setBulkDeleteOnlyUnassigned(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                        />
+                        <span>Only delete UNASSIGNED (in-stock) tags (protect active client standees)</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Option 3: Wipe All Unassigned Tags (Global) */}
+              <label
+                onClick={() => setBulkDeleteMode("ALL_UNASSIGNED")}
+                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                  bulkDeleteMode === "ALL_UNASSIGNED"
+                    ? "bg-rose-950/20 border-rose-500/60 ring-1 ring-rose-500/40"
+                    : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="bulkDeleteMode"
+                  checked={bulkDeleteMode === "ALL_UNASSIGNED"}
+                  onChange={() => setBulkDeleteMode("ALL_UNASSIGNED")}
+                  className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-xs">
+                      Wipe All In-Stock (Unassigned) Tags
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full">
+                      {tagStats.unassigned} In Stock
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Deletes all unassigned blank tags across every batch. Active tags bound to client businesses remain intact.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Warning Callout */}
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-2.5 text-rose-300 text-[11px] mb-5">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Warning:</strong> Deleted tags cannot be recovered. Physical QR codes or NFC cards corresponding to deleted serial codes will become inactive.
+              </span>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteModalBulkDelete}
+                disabled={deletingBulkTags || (bulkDeleteMode === "SELECTED" && selectedTagIds.length === 0)}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              >
+                {deletingBulkTags ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Confirm Bulk Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
