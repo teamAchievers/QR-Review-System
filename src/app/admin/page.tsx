@@ -1617,7 +1617,7 @@ export default function MasterAdminPage() {
     const perPage = isLandscape ? 2 : 4;
     const pageSize = isLandscape ? "A4 landscape" : "A4 portrait";
 
-    // Give iframe real physical A4 dimensions so media queries and mm units compute accurately!
+    // Create iframe positioned outside screen with true physical A4 dimensions
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.left = "-9999px";
@@ -1632,37 +1632,64 @@ export default function MasterAdminPage() {
     const doc = iframe.contentWindow?.document;
     if (!doc) return;
 
-    // Full page height (A4 height minus 12mm total margins):
-    // Portrait: 297mm - 12mm = 285mm
-    // Landscape: 210mm - 12mm = 198mm
-    const pageHeight = isLandscape ? "198mm" : "285mm";
+    // Strict page height matching A4 printable area (preventing accidental extra blank pages)
+    // A4 Portrait height: 297mm - 14mm margins = 283mm
+    // A4 Landscape height: 210mm - 14mm margins = 196mm
+    const pageHeight = isLandscape ? "196mm" : "282mm";
 
-    // Grid CSS:
-    // A4 Portrait: 2 columns x 2 rows, filling entire 285mm height!
-    // A4 Landscape: 2 columns x 1 row, filling entire 198mm height!
+    // Card dimensions & Typography calibrated for 100% visual consistency with modal preview
     let gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
-    let qrSize = "78mm";
-    let titleSize = "15px";
-    let cardBorder = "2.5px dashed #94a3b8";
+    let cardHeight = "135mm";
+    let qrSize = "66mm";
+    let titleSize = "17px";
+    let subSize = "10.5px";
+    let badgeSize = "10px";
+    let starsSize = "18px";
+    let pillSize = "10px";
+    let pillPadding = "3px 12px";
+    let footerSize = "9.5px";
+    let cardPadding = "14px 12px 10px";
+    let isSticker = isStickerA5 || isStickerA6;
 
     if (isA5 || isStickerA5) {
-      // 2 per sheet in A4 Landscape (138mm x 198mm each) - QR covers 54% height and 76% width!
+      // 2 per sheet in A4 Landscape (138mm x 196mm each)
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
-      qrSize = "105mm";
-      titleSize = "20px";
-      cardBorder = isStickerA5 ? "2.5px dashed #059669" : "2.5px dashed #94a3b8";
+      cardHeight = "192mm";
+      qrSize = "94mm";
+      titleSize = "24px";
+      subSize = "13px";
+      badgeSize = "12px";
+      starsSize = "24px";
+      pillSize = "12.5px";
+      pillPadding = "5px 18px";
+      footerSize = "11.5px";
+      cardPadding = "22px 18px 16px";
     } else if (isTent) {
-      // 2 Table-tents in A4 Landscape - QR covers 52% height and 74% width!
+      // 2 Table-tents in A4 Landscape
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
-      qrSize = "100mm";
-      titleSize = "18px";
-      cardBorder = "2.5px dashed #2563eb";
+      cardHeight = "192mm";
+      qrSize = "90mm";
+      titleSize = "22px";
+      subSize = "12.5px";
+      badgeSize = "11.5px";
+      starsSize = "22px";
+      pillSize = "12px";
+      pillPadding = "5px 16px";
+      footerSize = "11px";
+      cardPadding = "20px 16px 14px";
     } else if (isStickerA6) {
-      // 4 A6 stickers in A4 portrait (2 cols x 2 rows) - QR covers 56% height and 82% width!
+      // 4 A6 stickers in A4 portrait (2 cols x 2 rows)
       gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
-      qrSize = "78mm";
-      titleSize = "15px";
-      cardBorder = "2.5px dashed #059669";
+      cardHeight = "135mm";
+      qrSize = "66mm";
+      titleSize = "17px";
+      subSize = "10.5px";
+      badgeSize = "10px";
+      starsSize = "18px";
+      pillSize = "10px";
+      pillPadding = "3px 12px";
+      footerSize = "9.5px";
+      cardPadding = "14px 12px 10px";
     }
 
     // Chunk into even-number pages so every page has exact even prints without spillover
@@ -1686,7 +1713,7 @@ export default function MasterAdminPage() {
           <style>
             @page {
               size: ${pageSize};
-              margin: 6mm;
+              margin: 7mm;
             }
             *, *::before, *::after {
               box-sizing: border-box;
@@ -1695,27 +1722,27 @@ export default function MasterAdminPage() {
             }
             html, body {
               margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             }
             .print-page {
               display: grid;
               ${gridCss}
               width: 100%;
               height: ${pageHeight};
-              min-height: ${pageHeight};
+              max-height: ${pageHeight};
               box-sizing: border-box;
               page-break-inside: avoid;
               page-break-after: always;
               break-after: page;
             }
             .print-page:last-child {
-              page-break-after: auto;
-              break-after: auto;
+              page-break-after: avoid;
+              break-after: avoid;
             }
             .standee-card {
-              border: ${cardBorder};
-              border-radius: ${isStickerA5 ? "28px" : isStickerA6 ? "20px" : "18px"};
-              padding: ${isLandscape ? "10mm 10mm 8mm" : "6mm 6mm 5mm"};
+              border: 2px dashed #cbd5e1;
+              border-radius: 24px;
+              padding: ${cardPadding};
               text-align: center;
               position: relative;
               background: #ffffff;
@@ -1724,19 +1751,21 @@ export default function MasterAdminPage() {
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              height: 100%;
+              height: ${cardHeight};
+              max-height: ${cardHeight};
               width: 100%;
               box-sizing: border-box;
               overflow: hidden;
+              box-shadow: 0 1px 4px rgba(0,0,0,0.03);
             }
             .accent-bar {
               position: absolute; top: 0; left: 0; right: 0;
-              height: ${isLandscape ? "10px" : "7px"};
-              border-radius: ${isStickerA5 ? "28px 28px 0 0" : "18px 18px 0 0"};
+              height: ${isLandscape ? "9px" : "7px"};
+              border-radius: 24px 24px 0 0;
               background: ${
-                isStickerA5 || isStickerA6
-                  ? "linear-gradient(to right, #059669, #10b981, #06b6d4)"
-                  : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4)"
+                isSticker
+                  ? "linear-gradient(to right, #059669, #10b981, #06b6d4) !important"
+                  : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4) !important"
               };
             }
             .card-header {
@@ -1744,45 +1773,34 @@ export default function MasterAdminPage() {
               display: flex;
               flex-direction: column;
               align-items: center;
-              margin-bottom: 2mm;
+              margin-bottom: 2px;
             }
-            .tent-badge {
-              display: ${isTent ? "inline-block" : "none"};
-              background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 9px;
-              letter-spacing: 0.12em; padding: 2px 10px; border-radius: 4px; border: 1px dashed #93c5fd;
-              margin-bottom: 2px; text-transform: uppercase;
-            }
-            .sticker-badge {
-              display: ${isStickerA5 || isStickerA6 ? "inline-block" : "none"};
-              background: #ecfdf5; color: #059669; font-weight: 800; font-size: ${isStickerA5 ? "10px" : "8px"};
-              letter-spacing: 0.12em; padding: 2px 10px; border-radius: 9999px; border: 1px solid #a7f3d0;
-              margin-bottom: 2px; text-transform: uppercase;
-            }
-            .header-label {
-              font-size: ${isLandscape ? "10px" : "8.5px"};
-              font-weight: 800;
+            .header-badge {
+              font-size: ${badgeSize};
+              font-weight: 900;
               text-transform: uppercase;
-              color: #2563eb;
-              letter-spacing: 0.06em;
-              margin-bottom: 1px;
+              letter-spacing: 0.08em;
+              color: ${isSticker ? "#059669" : "#2563eb"};
+              margin-bottom: 2px;
             }
             .card-title {
               font-size: ${titleSize};
-              font-weight: 900;
+              font-weight: 800;
               color: #0f172a;
-              margin: 1mm 0 0.5mm;
+              margin: 1px 0 2px;
               line-height: 1.15;
             }
             .card-sub {
-              font-size: ${isLandscape ? "11px" : "9px"};
+              font-size: ${subSize};
               color: #64748b;
-              margin-bottom: 1mm;
+              font-weight: 500;
+              margin: 0 0 3px;
             }
             .stars {
               color: #f59e0b;
-              font-size: ${isLandscape ? "24px" : "17px"};
+              font-size: ${starsSize};
               letter-spacing: 3px;
-              margin: 0.5mm 0;
+              margin: 1px 0 3px;
               line-height: 1;
             }
             .qr-container {
@@ -1794,7 +1812,7 @@ export default function MasterAdminPage() {
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isLandscape ? "-22px" : "-19px"};
+              left: -20px;
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
@@ -1802,17 +1820,17 @@ export default function MasterAdminPage() {
               font-size: 8px;
               font-weight: 700;
               letter-spacing: 0.12em;
-              color: #64748b;
+              color: #94a3b8;
               text-transform: uppercase;
               user-select: none;
             }
             .qr-wrap {
               display: inline-block;
-              padding: ${isLandscape ? "6px" : "5px"};
-              background: #ffffff;
-              border: 2.5px solid #cbd5e1;
-              border-radius: ${isLandscape ? "22px" : "16px"};
-              box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+              padding: ${isLandscape ? "9px" : "7px"};
+              background: #f8fafc;
+              border: 1.5px solid #e2e8f0;
+              border-radius: 20px;
+              box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
             }
             .qr-img {
               width: ${qrSize} !important;
@@ -1820,33 +1838,35 @@ export default function MasterAdminPage() {
               max-width: ${qrSize} !important;
               max-height: ${qrSize} !important;
               display: block;
+              border-radius: 12px;
             }
             .card-footer {
               width: 100%;
               display: flex;
               flex-direction: column;
               align-items: center;
-              margin-top: 2mm;
+              margin-top: 2px;
             }
             .nfc-badge {
-              font-size: ${isLandscape ? "11px" : "8.5px"};
-              font-weight: 800;
+              font-size: ${pillSize};
+              font-weight: 700;
               color: #0369a1;
-              background: #e0f2fe;
-              padding: ${isLandscape ? "3px 12px" : "2px 8px"};
+              background: #f0f9ff;
+              padding: ${pillPadding};
               border-radius: 9999px;
               display: inline-block;
-              margin-bottom: 1.5mm;
+              margin-bottom: 4px;
+              border: 1px solid #bae6fd;
             }
             .footer-brand {
-              font-size: ${isLandscape ? "10px" : "8px"};
+              font-size: ${footerSize};
               color: #94a3b8;
               border-top: 1px solid #f1f5f9;
-              padding-top: 1.5mm;
+              padding-top: 4px;
               width: 100%;
               text-align: center;
             }
-            .footer-brand strong { color: #475569; }
+            .footer-brand strong { color: #475569; font-weight: 700; }
           </style>
         </head>
         <body>
@@ -1856,23 +1876,19 @@ export default function MasterAdminPage() {
                 const title = item.business?.name || "Review Us On Google";
                 const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
                 const badgeLabel = isStickerA5
-                  ? "★ GOOGLE REVIEW STICKER (A5) ★"
+                  ? "Review Sticker (A5)"
                   : isStickerA6
-                  ? "★ REVIEW STICKER (A6) ★"
+                  ? "Review Sticker (A6)"
                   : isTent
                   ? "Table-Tent Standee"
                   : isA5
-                  ? "A5 Countertop Standee"
-                  : "A6 Acrylic Standee";
+                  ? "Countertop Standee"
+                  : "Countertop Standee";
                 return `
                   <div class="standee-card">
                     <div class="accent-bar"></div>
                     <div class="card-header">
-                      ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
-                      ${isStickerA5 || isStickerA6 ? `<div class="sticker-badge">${badgeLabel}</div>` : ""}
-                      ${(!isTent && !isStickerA5 && !isStickerA6) ? `
-                        <div class="header-label">${badgeLabel}</div>
-                      ` : ""}
+                      <div class="header-badge">${badgeLabel}</div>
                       <h1 class="card-title">${title}</h1>
                       <div class="card-sub">${sub}</div>
                       <div class="stars">★★★★★</div>
@@ -1884,7 +1900,7 @@ export default function MasterAdminPage() {
                       </div>
                     </div>
                     <div class="card-footer">
-                      <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
+                      <span class="nfc-badge">📲 Tap NFC or Scan QR</span>
                       <div class="footer-brand">
                         Powered by <strong>${poweredBy}</strong>
                       </div>
@@ -1913,9 +1929,8 @@ export default function MasterAdminPage() {
       }, 2000);
     };
 
-    setTimeout(triggerPrint, 400);
+    setTimeout(triggerPrint, 350);
   };
-
   const handleExportNfcCsv = (batchFilter?: string) => {
     const listToExport = tags.filter((t) => (batchFilter && batchFilter !== "ALL" ? t.batchCode === batchFilter : true));
     if (listToExport.length === 0) {
