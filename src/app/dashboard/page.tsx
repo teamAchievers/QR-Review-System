@@ -201,6 +201,9 @@ export default function BusinessDashboardPage() {
 
   // Hardware Standee Tag Activation & Inventory State
   const [activateTagModalOpen, setActivateTagModalOpen] = useState(false);
+  const [activateTagTargetBizId, setActivateTagTargetBizId] = useState("");
+  const [tagVerifyLoading, setTagVerifyLoading] = useState(false);
+  const [tagVerifyResult, setTagVerifyResult] = useState<{ valid: boolean; message?: string; error?: string; tag?: any } | null>(null);
   const [activateTagCode, setActivateTagCode] = useState("");
   const [activateTagLabel, setActivateTagLabel] = useState("");
   const [activateTagLoading, setActivateTagLoading] = useState(false);
@@ -371,36 +374,58 @@ export default function BusinessDashboardPage() {
     }
   }, []);
 
+  const handleVerifyTag = async (codeToVerify?: string) => {
+    const code = (codeToVerify || activateTagCode).trim().toUpperCase();
+    if (!code) {
+      setTagVerifyResult({ valid: false, error: "Please enter a tag code to verify" });
+      return;
+    }
+    setTagVerifyLoading(true);
+    setTagVerifyResult(null);
+    try {
+      const res = await fetch(`/api/dashboard/tags?action=verify&tagCode=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      setTagVerifyResult(data);
+    } catch (err: any) {
+      setTagVerifyResult({ valid: false, error: err.message || "Failed to verify tag code" });
+    } finally {
+      setTagVerifyLoading(false);
+    }
+  };
+
   const handleActivateTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activateTagCode.trim()) {
-      setActivateTagError("Please enter the hardware tag serial code (e.g. TAG-D6D6EE)");
+      setActivateTagError("Please enter the pre-generated tag serial code (e.g. TAG-D6D6EE)");
       return;
     }
     setActivateTagLoading(true);
     setActivateTagError(null);
     setActivateTagSuccess(null);
     try {
+      const targetBiz = activateTagTargetBizId || business?.id;
       const res = await fetch("/api/dashboard/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tagCode: activateTagCode.trim().toUpperCase(),
           label: activateTagLabel.trim() || undefined,
-          businessId: business?.id,
+          businessId: targetBiz,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setActivateTagError(data.error || "Failed to activate hardware tag");
+        setActivateTagError(data.error || "Failed to configure pre-generated tag");
       } else {
-        setActivateTagSuccess(data.message || "Hardware standee activated successfully!");
+        setActivateTagSuccess(data.message || "Pre-generated standee successfully configured!");
         setActivateTagCode("");
         setActivateTagLabel("");
-        if (business?.id) fetchLinkedTags(business.id);
+        setTagVerifyResult(null);
+        if (targetBiz) fetchLinkedTags(targetBiz);
+        fetchOnboardedClients();
       }
     } catch (err: any) {
-      setActivateTagError(err.message || "Network error while activating tag");
+      setActivateTagError(err.message || "Network error while configuring tag");
     } finally {
       setActivateTagLoading(false);
     }
@@ -1463,6 +1488,21 @@ export default function BusinessDashboardPage() {
 
                 <button
                   onClick={() => {
+                    setActivateTagError(null);
+                    setActivateTagSuccess(null);
+                    setTagVerifyResult(null);
+                    setActivateTagTargetBizId(business?.id || "");
+                    setActivateTagModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  title="Configure pre-generated QR & NFC hardware from Master Admin stock"
+                >
+                  <Radio className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Configure Pre-Generated Standee</span>
+                </button>
+
+                <button
+                  onClick={() => {
                     setOnboardError(null);
                     setOnboardSuccess(null);
                     setCreatedClientData(null);
@@ -1644,14 +1684,30 @@ export default function BusinessDashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setActivateTagError(null);
+                                    setActivateTagSuccess(null);
+                                    setTagVerifyResult(null);
+                                    setActivateTagTargetBizId(client.id);
+                                    setActivateTagModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Bind a pre-generated QR & NFC standee to this customer"
+                                >
+                                  <Radio className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>Bind Standee</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
                                     fetchData(client.id);
                                     setActiveTab("qr");
                                   }}
-                                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                                   title="Switch Live Standee & Funnel Studio"
                                 >
-                                  <QrCode className="w-3.5 h-3.5 text-purple-600" />
-                                  <span>Standee</span>
+                                  <QrCode className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Preview</span>
                                 </button>
                               </div>
                             </td>
@@ -1802,7 +1858,7 @@ export default function BusinessDashboardPage() {
                       title="Activate pre-printed QR & NFC standee in field"
                     >
                       <Radio className="w-3.5 h-3.5 text-purple-200" />
-                      <span>Activate Tag</span>
+                      <span>Configure Pre-Generated Tag</span>
                     </button>
                   </div>
                 </div>
@@ -3722,41 +3778,54 @@ export default function BusinessDashboardPage() {
         </div>
       )}
 
-      {/* ================= ACTIVATE HARDWARE TAG MODAL ================= */}
+{/* ================= PRE-GENERATED HARDWARE TAG CONFIGURATION MODAL ================= */}
       {activateTagModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl p-6 relative">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => {
                 setActivateTagModalOpen(false);
                 setActivateTagError(null);
                 setActivateTagSuccess(null);
+                setTagVerifyResult(null);
               }}
               className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-200">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">Activate Hardware Standee</h3>
-                <p className="text-xs text-slate-500">Bind pre-printed NFC + QR code to &quot;{business?.name}&quot;</p>
+                <h3 className="text-base font-black text-slate-900">Configure Pre-Generated QR &amp; NFC</h3>
+                <p className="text-xs text-slate-500">Deploy physical hardware standees pre-minted by Master Admin</p>
+              </div>
+            </div>
+
+            {/* Master Admin Protocol Notice */}
+            <div className="p-3 bg-slate-900 text-slate-300 rounded-2xl border border-slate-800 text-[11px] mb-5 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white block">Pre-Minted Stock Protocol:</strong>
+                Only Master Admin can generate and mint new QR/NFC batches. Agents verify and bind pre-generated hardware stock directly to client counters in the field.
               </div>
             </div>
 
             {activateTagSuccess ? (
               <div className="space-y-4 text-center py-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Standee Activated!</h4>
+                  <h4 className="text-base font-black text-slate-900">Standee Configured &amp; Active!</h4>
                   <p className="text-xs text-slate-600 mt-1">{activateTagSuccess}</p>
-                  <p className="text-[11px] text-purple-600 font-semibold mt-2">
-                    ✓ Confirmed &amp; recorded in Master Admin Panel
+                  <div className="mt-3 p-3 bg-purple-50 text-purple-800 rounded-xl border border-purple-200 text-xs font-semibold">
+                    ✓ Standee now routes all NFC taps &amp; QR scans directly to the customer review funnel.
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    Audit logged in Master Admin under <strong>Agent Configured</strong> inventory.
                   </p>
                 </div>
                 <button
@@ -3764,6 +3833,7 @@ export default function BusinessDashboardPage() {
                   onClick={() => {
                     setActivateTagModalOpen(false);
                     setActivateTagSuccess(null);
+                    setTagVerifyResult(null);
                   }}
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
@@ -3779,33 +3849,93 @@ export default function BusinessDashboardPage() {
                   </div>
                 )}
 
+                {/* Step 1: Pre-Generated Tag Serial Code & Live Verification */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Tag Serial Code *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. TAG-D6D6EE"
-                    value={activateTagCode}
-                    onChange={(e) => setActivateTagCode(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Find the serial code printed at the bottom of the standee or on the back.
-                  </p>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Pre-Generated Tag Serial Code *
+                    </label>
+                    <span className="text-[10px] text-slate-400">Printed on acrylic standee base</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. TAG-D6D6EE"
+                      value={activateTagCode}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setActivateTagCode(val);
+                        setTagVerifyResult(null);
+                      }}
+                      className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyTag()}
+                      disabled={tagVerifyLoading || !activateTagCode.trim()}
+                      className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                    >
+                      {tagVerifyLoading ? "Verifying..." : "Verify Stock"}
+                    </button>
+                  </div>
+
+                  {/* Verification Status Feedback */}
+                  {tagVerifyResult && (
+                    <div className="mt-2">
+                      {tagVerifyResult.valid ? (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div>
+                            <strong className="font-bold">Valid Pre-Generated Tag:</strong> Batch <span className="font-mono font-bold">{tagVerifyResult.tag?.batchCode}</span> ({tagVerifyResult.tag?.type === "QR_NFC" ? "Dual Standee NFC + QR" : tagVerifyResult.tag?.type || "Hardware Standee"}) • <span className="text-emerald-700 font-bold">READY TO CONFIGURE</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <div>{tagVerifyResult.error}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
+                {/* Step 2: Target Client Selection */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Placement / Counter Label (Optional)
+                    Target Client / Customer *
+                  </label>
+                  <select
+                    value={activateTagTargetBizId || business?.id || ""}
+                    onChange={(e) => setActivateTagTargetBizId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                    required
+                  >
+                    {allBusinesses && allBusinesses.length > 0 ? (
+                      allBusinesses.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.city || "Venue"})
+                        </option>
+                      ))
+                    ) : business ? (
+                      <option value={business.id}>{business.name}</option>
+                    ) : (
+                      <option value="">No client available</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Step 3: Standee Placement / Counter Label */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Counter / Table Placement Label (Optional)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Reception Desk, Cashier Counter, Table 4"
+                    placeholder="e.g. Reception Desk, Cashier Counter 1, Table 4"
                     value={activateTagLabel}
                     onChange={(e) => setActivateTagLabel(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
@@ -3816,10 +3946,13 @@ export default function BusinessDashboardPage() {
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2">
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setActivateTagModalOpen(false)}
+                    onClick={() => {
+                      setActivateTagModalOpen(false);
+                      setTagVerifyResult(null);
+                    }}
                     className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 cursor-pointer"
                   >
                     Cancel
@@ -3827,7 +3960,7 @@ export default function BusinessDashboardPage() {
                   <button
                     type="submit"
                     disabled={activateTagLoading}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 disabled:opacity-50 cursor-pointer"
+                    className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 disabled:opacity-50 cursor-pointer"
                   >
                     {activateTagLoading ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
