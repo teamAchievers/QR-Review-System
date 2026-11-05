@@ -969,7 +969,7 @@ export default function MasterAdminPage() {
     business?: any;
     label?: string | null;
   }[]>([]);
-  const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A6" | "TENT" | "STICKER">("A6");
+  const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A5" | "A6" | "TENT" | "STICKER">("A6");
   const [preparingSheet, setPreparingSheet] = useState(false);
 
   const fetchTags = async (statusParam?: string, batchParam?: string, searchParam?: string) => {
@@ -1616,6 +1616,10 @@ export default function MasterAdminPage() {
     if (batchQrList.length === 0) return;
     const poweredBy = globalBranding.poweredByText || "Unbox Studio";
 
+    const isA5 = batchStandeeLayout === "A5";
+    const isTent = batchStandeeLayout === "TENT";
+    const isSticker = batchStandeeLayout === "STICKER";
+
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.right = "0";
@@ -1628,14 +1632,45 @@ export default function MasterAdminPage() {
     const doc = iframe.contentWindow?.document;
     if (!doc) return;
 
+    // Layout-specific dimensions and grids
+    let gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
+    let cardHeight = "136mm";
+    let qrSize = "125px";
+    let titleSize = "15px";
+    let subDisplay = "block";
+    let cardBorder = "2px dashed #94a3b8";
+
+    if (isA5) {
+      gridCss = "grid-template-columns: 1fr; gap: 8mm;";
+      cardHeight = "138mm";
+      qrSize = "170px";
+      titleSize = "22px";
+      subDisplay = "block";
+      cardBorder = "2px dashed #94a3b8";
+    } else if (isTent) {
+      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 8mm;";
+      cardHeight = "138mm";
+      qrSize = "135px";
+      titleSize = "17px";
+      subDisplay = "block";
+      cardBorder = "2px dashed #2563eb";
+    } else if (isSticker) {
+      gridCss = "grid-template-columns: repeat(4, 1fr); gap: 4mm;";
+      cardHeight = "68mm";
+      qrSize = "80px";
+      titleSize = "11px";
+      subDisplay = "none";
+      cardBorder = "1.5px dashed #94a3b8";
+    }
+
     doc.open();
     doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Print Batch Standees - ${batchQrList.length} Units</title>
+          <title>Print Standees - ${isA5 ? "A5 (2 per sheet)" : isTent ? "Foldable Table Tents" : isSticker ? "Stickers (8 per sheet)" : "A6 Acrylic (4 per sheet)"}</title>
           <style>
-            @page { size: A4 portrait; margin: 8mm; }
+            @page { size: A4 portrait; margin: ${isSticker ? "6mm" : "8mm"}; }
             * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body {
               margin: 0; padding: 0; background: #ffffff;
@@ -1643,14 +1678,13 @@ export default function MasterAdminPage() {
             }
             .grid {
               display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 8mm;
+              ${gridCss}
               page-break-inside: auto;
             }
             .standee-card {
-              border: 2px dashed #94a3b8;
-              border-radius: 20px;
-              padding: 22px 16px 18px;
+              border: ${cardBorder};
+              border-radius: ${isSticker ? "12px" : "18px"};
+              padding: ${isA5 ? "24px 28px" : isTent ? "16px 14px" : isSticker ? "8px 6px" : "16px 12px 14px"};
               text-align: center;
               position: relative;
               background: #ffffff;
@@ -1659,38 +1693,102 @@ export default function MasterAdminPage() {
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              min-height: 125mm;
+              height: ${cardHeight};
+              box-sizing: border-box;
             }
             .accent-bar {
-              position: absolute; top: 0; left: 0; right: 0; height: 8px;
-              border-radius: 20px 20px 0 0;
+              position: absolute; top: 0; left: 0; right: 0;
+              height: ${isA5 ? "10px" : isSticker ? "5px" : "7px"};
+              border-radius: ${isSticker ? "12px 12px 0 0" : "18px 18px 0 0"};
               background: linear-gradient(to right, #2563eb, #4f46e5, #06b6d4);
             }
-            .stars { color: #f59e0b; font-size: 20px; letter-spacing: 3px; margin: 4px 0; }
-            h1 { font-size: 16px; font-weight: 800; color: #0f172a; margin: 4px 0 2px; }
-            .sub { font-size: 11px; color: #64748b; margin-bottom: 8px; }
+            .tent-badge {
+              display: ${isTent ? "inline-block" : "none"};
+              background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 8px;
+              letter-spacing: 0.12em; padding: 2px 8px; border-radius: 4px; border: 1px dashed #93c5fd;
+              margin-bottom: 2px; text-transform: uppercase;
+            }
+            .stars {
+              color: #f59e0b;
+              font-size: ${isA5 ? "24px" : isTent ? "20px" : isSticker ? "12px" : "18px"};
+              letter-spacing: ${isSticker ? "2px" : "3px"};
+              margin: ${isSticker ? "1px 0" : "2px 0"};
+            }
+            h1 {
+              font-size: ${titleSize};
+              font-weight: 800;
+              color: #0f172a;
+              margin: 2px 0;
+              line-height: 1.15;
+              ${isSticker ? "max-height: 22px; overflow: hidden;" : ""}
+            }
+            .sub {
+              display: ${subDisplay};
+              font-size: ${isA5 ? "13px" : "10px"};
+              color: #64748b;
+              margin-bottom: ${isA5 ? "6px" : "4px"};
+            }
             .qr-wrap {
-              position: relative; display: inline-flex; align-items: center; justify-content: center;
-              padding: 8px 10px 8px 28px; background: #ffffff; border: 2px solid #e2e8f0;
-              border-radius: 16px; margin: 4px 0;
+              position: relative;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              padding: ${isA5 ? "10px 14px 10px 36px" : isSticker ? "3px 4px 3px 20px" : "6px 8px 6px 28px"};
+              background: #ffffff;
+              border: ${isSticker ? "1.5px solid #e2e8f0" : "2px solid #e2e8f0"};
+              border-radius: ${isSticker ? "8px" : "16px"};
+              margin: ${isSticker ? "1px 0" : "3px 0"};
             }
             .vertical-tag-id {
-              position: absolute; left: 5px; top: 50%; transform: translateY(-50%) rotate(180deg);
-              writing-mode: vertical-rl; font-family: monospace; font-size: 8px; font-weight: 800;
-              letter-spacing: 0.12em; color: #334155; background: #f1f5f9; padding: 5px 2px;
-              border-radius: 4px; border: 1px solid #cbd5e1; text-transform: uppercase;
+              position: absolute;
+              left: ${isSticker ? "3px" : "6px"};
+              top: 50%;
+              transform: translateY(-50%) rotate(180deg);
+              writing-mode: vertical-rl;
+              font-family: monospace;
+              font-size: ${isA5 ? "11px" : isSticker ? "7px" : "8px"};
+              font-weight: 800;
+              letter-spacing: 0.1em;
+              color: #334155;
+              background: #f1f5f9;
+              padding: ${isSticker ? "2px 1px" : "4px 2px"};
+              border-radius: 4px;
+              border: 1px solid #cbd5e1;
+              text-transform: uppercase;
             }
-            .qr-img { width: 140px; height: 140px; display: block; }
+            .qr-img {
+              width: ${qrSize};
+              height: ${qrSize};
+              display: block;
+            }
             .tag-pill {
-              font-family: monospace; font-size: 11px; font-weight: 800; color: #0f172a;
-              background: #f1f5f9; padding: 3px 10px; border-radius: 6px; border: 1px solid #cbd5e1;
-              margin: 4px 0;
+              font-family: monospace;
+              font-size: ${isA5 ? "12px" : isSticker ? "8px" : "10px"};
+              font-weight: 800;
+              color: #0f172a;
+              background: #f1f5f9;
+              padding: ${isSticker ? "1px 6px" : "2px 8px"};
+              border-radius: 6px;
+              border: 1px solid #cbd5e1;
+              margin: ${isSticker ? "1px 0" : "2px 0"};
             }
             .nfc-badge {
-              font-size: 10px; font-weight: 700; color: #0369a1; background: #e0f2fe;
-              padding: 3px 12px; border-radius: 9999px; display: inline-block;
+              font-size: ${isA5 ? "11px" : isSticker ? "8px" : "9px"};
+              font-weight: 700;
+              color: #0369a1;
+              background: #e0f2fe;
+              padding: ${isSticker ? "1px 6px" : "2px 10px"};
+              border-radius: 9999px;
+              display: inline-block;
             }
-            .footer { margin-top: 10px; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 6px; width: 100%; }
+            .footer {
+              margin-top: ${isSticker ? "2px" : "6px"};
+              font-size: ${isA5 ? "11px" : isSticker ? "8px" : "9px"};
+              color: #94a3b8;
+              border-top: 1px solid #f1f5f9;
+              padding-top: ${isSticker ? "2px" : "4px"};
+              width: 100%;
+            }
             .footer strong { color: #475569; }
           </style>
         </head>
@@ -1702,8 +1800,9 @@ export default function MasterAdminPage() {
               return `
                 <div class="standee-card">
                   <div class="accent-bar"></div>
-                  <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 2px;">
-                    Countertop Review Standee
+                  ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
+                  <div style="font-size: ${isSticker ? "8px" : "9px"}; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
+                    ${isTent ? "Table-Tent Standee" : isA5 ? "A5 Countertop Standee" : isSticker ? "Review Sticker" : "A6 Acrylic Standee"}
                   </div>
                   <h1>${title}</h1>
                   <div class="sub">${sub}</div>
@@ -1714,7 +1813,7 @@ export default function MasterAdminPage() {
                   </div>
                   <div class="tag-pill">${item.tagCode}</div>
                   <div>
-                    <span class="nfc-badge">📲 Tap Phone (NFC) or Scan QR</span>
+                    <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
                   </div>
                   <div class="footer">
                     Powered by <strong>${poweredBy}</strong>
@@ -6318,33 +6417,42 @@ export default function MasterAdminPage() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setBatchStandeeLayout("A5")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStandeeLayout === "A5" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    A5 (2 / Sheet)
+                  </button>
                   <button
                     type="button"
                     onClick={() => setBatchStandeeLayout("A6")}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      batchStandeeLayout === "A6" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStandeeLayout === "A6" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    A6 Acrylic
+                    A6 Acrylic (4 / Sheet)
                   </button>
                   <button
                     type="button"
                     onClick={() => setBatchStandeeLayout("TENT")}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      batchStandeeLayout === "TENT" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStandeeLayout === "TENT" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Table-Tent
+                    Table-Tent (Foldable)
                   </button>
                   <button
                     type="button"
                     onClick={() => setBatchStandeeLayout("STICKER")}
-                    className={`px-3 py-1 rounded-lg transition-all ${
-                      batchStandeeLayout === "STICKER" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStandeeLayout === "STICKER" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Stickers
+                    Stickers (8 / Sheet)
                   </button>
                 </div>
 
@@ -6354,7 +6462,9 @@ export default function MasterAdminPage() {
                   className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-transform active:scale-95"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Standee Sheet</span>
+                  <span>
+                    Print {batchStandeeLayout === "A5" ? "A5 (2/sheet)" : batchStandeeLayout === "TENT" ? "Table-Tents" : batchStandeeLayout === "STICKER" ? "Stickers (8/sheet)" : "A6 Acrylic (4/sheet)"}
+                  </span>
                 </button>
 
                 <button
@@ -6376,7 +6486,9 @@ export default function MasterAdminPage() {
               <div className="p-12 text-center text-slate-400 text-xs">No standees available to print.</div>
             ) : (
               <div className={`grid gap-4 max-h-[65vh] overflow-y-auto p-2 ${
-                batchStandeeLayout === "TENT"
+                batchStandeeLayout === "A5"
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : batchStandeeLayout === "TENT"
                   ? "grid-cols-1 sm:grid-cols-2"
                   : batchStandeeLayout === "STICKER"
                   ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6"
