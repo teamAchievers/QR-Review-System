@@ -974,6 +974,7 @@ export default function MasterAdminPage() {
     label?: string | null;
   }[]>([]);
   const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A5" | "A6" | "TENT" | "STICKER_A5" | "STICKER_A6">("A6");
+  const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [preparingSheet, setPreparingSheet] = useState(false);
 
   // NFC Tool & Programming Studio State
@@ -1602,6 +1603,199 @@ export default function MasterAdminPage() {
     img.src = qrUrl;
   };
 
+  // ================= SVG PRINT & PREVIEW ENGINE =================
+  const escapeSvgText = (unsafe: string | null | undefined): string => {
+    if (!unsafe) return "";
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+      switch (c) {
+        case "<": return "&lt;";
+        case ">": return "&gt;";
+        case "&": return "&amp;";
+        case "'": return "&apos;";
+        case '"': return "&quot;";
+        default: return c;
+      }
+    });
+  };
+
+  const generateA6SheetSvg = (items: any[], poweredBy: string, isSticker: boolean): string => {
+    const accentGradId = isSticker ? "stickerGradA6" : "standeeGradA6";
+    const accentColor = isSticker ? "#059669" : "#2563eb";
+    const badgeText = isSticker ? "REVIEW STICKER (A6)" : "A6 ACRYLIC STANDEE";
+
+    // 4 A6 cards on A4 portrait (2100x2970 tenths-of-mm)
+    // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
+    const cardsCoords = [
+      { x: 70, y: 70 },
+      { x: 1080, y: 70 },
+      { x: 70, y: 1520 },
+      { x: 1080, y: 1520 }
+    ];
+
+    let cardsSvg = "";
+    items.slice(0, 4).forEach((item, idx) => {
+      const c = cardsCoords[idx];
+      if (!c) return;
+      const title = escapeSvgText(item.business?.name || "Review Us On Google");
+      const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
+      const tagCode = escapeSvgText(item.tagCode);
+
+      cardsSvg += `
+      <g transform="translate(${c.x}, ${c.y})">
+        <!-- Card Boundary & Cutting Dashed Line -->
+        <rect x="0" y="0" width="950" height="1380" rx="180" fill="#ffffff" stroke="#cbd5e1" stroke-width="16" stroke-dasharray="40,24" />
+        
+        <!-- Top Accent Bar -->
+        <path d="M 0 180 A 180 180 0 0 1 180 0 L 770 0 A 180 180 0 0 1 950 180 L 950 70 L 0 70 Z" fill="url(#${accentGradId})" />
+
+        <!-- Category Badge -->
+        <text x="475" y="130" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="${accentColor}" letter-spacing="3">${badgeText}</text>
+
+        <!-- Business Title -->
+        <text x="475" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="58" font-weight="800" fill="#0f172a">${title}</text>
+
+        <!-- Subtitle -->
+        <text x="475" y="270" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="500" fill="#64748b">${sub}</text>
+
+        <!-- 5 Gold Stars -->
+        <text x="475" y="345" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="55" fill="#f59e0b" letter-spacing="12">★★★★★</text>
+
+        <!-- QR Box Centerpiece (covers ~49% of card height) -->
+        <g transform="translate(475, 750)">
+          <!-- Vertical 8px Tag ID Outside Left of QR Box -->
+          <text x="-395" y="0" text-anchor="middle" font-family="monospace" font-size="28" font-weight="700" fill="#94a3b8" letter-spacing="3" transform="rotate(-90 -395 0)">${tagCode}</text>
+          
+          <!-- QR Wrap Outer Box -->
+          <rect x="-340" y="-340" width="680" height="680" rx="120" fill="#f8fafc" stroke="#e2e8f0" stroke-width="14" />
+          
+          <!-- High-Res QR Image -->
+          <image href="${item.qrDataUrl}" x="-310" y="-310" width="620" height="620" rx="80" preserveAspectRatio="xMidYMid meet" />
+        </g>
+
+        <!-- NFC Action Pill -->
+        <g transform="translate(475, 1170)">
+          <rect x="-250" y="-40" width="500" height="80" rx="40" fill="#f0f9ff" stroke="#bae6fd" stroke-width="10" />
+          <text x="0" y="12" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
+        </g>
+
+        <!-- Footer Divider & Branding -->
+        <line x1="70" y1="1260" x2="880" y2="1260" stroke="#f1f5f9" stroke-width="10" />
+        <text x="475" y="1315" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
+      </g>`;
+    });
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2100 2970" width="210mm" height="297mm">
+      <defs>
+        <linearGradient id="standeeGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#2563eb" />
+          <stop offset="50%" stop-color="#4f46e5" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+        <linearGradient id="stickerGradA6" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#059669" />
+          <stop offset="50%" stop-color="#10b981" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <rect width="2100" height="2970" fill="#ffffff" />
+      ${cardsSvg}
+    </svg>`;
+  };
+
+  const generateA5SheetSvg = (items: any[], poweredBy: string, isSticker: boolean, isTent: boolean): string => {
+    const accentGradId = isSticker ? "stickerGradA5" : "standeeGradA5";
+    const accentColor = isSticker ? "#059669" : "#2563eb";
+    const badgeText = isSticker ? "REVIEW STICKER (A5)" : isTent ? "TABLE-TENT STANDEE" : "A5 COUNTERTOP STANDEE";
+
+    // 2 A5 cards on A4 landscape (2970x2100 tenths-of-mm)
+    // Equal 7mm margins (70) on Top, Bottom, Left, and Right!
+    const cardsCoords = [
+      { x: 70, y: 70 },
+      { x: 1520, y: 70 }
+    ];
+
+    let cardsSvg = "";
+    items.slice(0, 2).forEach((item, idx) => {
+      const c = cardsCoords[idx];
+      if (!c) return;
+      const title = escapeSvgText(item.business?.name || "Review Us On Google");
+      const sub = escapeSvgText(item.business?.city || "Tap Phone (NFC) or Scan QR");
+      const tagCode = escapeSvgText(item.tagCode);
+
+      cardsSvg += `
+      <g transform="translate(${c.x}, ${c.y})">
+        <!-- Card Boundary & Cutting Dashed Line -->
+        <rect x="0" y="0" width="1380" height="1960" rx="220" fill="#ffffff" stroke="#cbd5e1" stroke-width="18" stroke-dasharray="50,30" />
+        
+        <!-- Top Accent Bar -->
+        <path d="M 0 220 A 220 220 0 0 1 220 0 L 1160 0 A 220 220 0 0 1 1380 220 L 1380 90 L 0 90 Z" fill="url(#${accentGradId})" />
+
+        <!-- Category Badge -->
+        <text x="690" y="150" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="${accentColor}" letter-spacing="4">${badgeText}</text>
+
+        <!-- Business Title -->
+        <text x="690" y="260" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="84" font-weight="800" fill="#0f172a">${title}</text>
+
+        <!-- Subtitle -->
+        <text x="690" y="340" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="500" fill="#64748b">${sub}</text>
+
+        <!-- 5 Gold Stars -->
+        <text x="690" y="440" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="78" fill="#f59e0b" letter-spacing="16">★★★★★</text>
+
+        <!-- QR Box Centerpiece (960x960, ~49% of card height) -->
+        <g transform="translate(690, 1060)">
+          <!-- Vertical 8px Tag ID Outside Left of QR Box -->
+          <text x="-545" y="0" text-anchor="middle" font-family="monospace" font-size="36" font-weight="700" fill="#94a3b8" letter-spacing="4" transform="rotate(-90 -545 0)">${tagCode}</text>
+          
+          <!-- QR Wrap Outer Box -->
+          <rect x="-480" y="-480" width="960" height="960" rx="160" fill="#f8fafc" stroke="#e2e8f0" stroke-width="16" />
+          
+          <!-- High-Res QR Image -->
+          <image href="${item.qrDataUrl}" x="-440" y="-440" width="880" height="880" rx="120" preserveAspectRatio="xMidYMid meet" />
+        </g>
+
+        <!-- NFC Action Pill -->
+        <g transform="translate(690, 1670)">
+          <rect x="-350" y="-55" width="700" height="110" rx="55" fill="#f0f9ff" stroke="#bae6fd" stroke-width="12" />
+          <text x="0" y="16" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="46" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
+        </g>
+
+        <!-- Footer Divider & Branding -->
+        <line x1="90" y1="1800" x2="1290" y2="1800" stroke="#f1f5f9" stroke-width="12" />
+        <text x="690" y="1880" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="42" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${escapeSvgText(poweredBy)}</tspan></text>
+      </g>`;
+    });
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2970 2100" width="297mm" height="210mm">
+      <defs>
+        <linearGradient id="standeeGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#2563eb" />
+          <stop offset="50%" stop-color="#4f46e5" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+        <linearGradient id="stickerGradA5" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#059669" />
+          <stop offset="50%" stop-color="#10b981" />
+          <stop offset="100%" stop-color="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <rect width="2970" height="2100" fill="#ffffff" />
+      ${cardsSvg}
+    </svg>`;
+  };
+
+  const generateBatchSheetSvg = (items: any[], layout: string, poweredBy: string): string => {
+    const isA5 = layout === "A5";
+    const isTent = layout === "TENT";
+    const isStickerA5 = layout === "STICKER_A5";
+    const isStickerA6 = layout === "STICKER_A6" || layout === "STICKER";
+
+    if (isA5 || isTent || isStickerA5) {
+      return generateA5SheetSvg(items, poweredBy, isStickerA5, isTent);
+    }
+    return generateA6SheetSvg(items, poweredBy, isStickerA6);
+  };
+
   const handlePrintBatchStandeeSheet = () => {
     if (batchQrList.length === 0) return;
     const poweredBy = globalBranding.poweredByText || "Unbox Studio";
@@ -1609,13 +1803,17 @@ export default function MasterAdminPage() {
     const isA5 = batchStandeeLayout === "A5";
     const isTent = batchStandeeLayout === "TENT";
     const isStickerA5 = batchStandeeLayout === "STICKER_A5";
-    const isStickerA6 = batchStandeeLayout === "STICKER_A6" || (batchStandeeLayout as string) === "STICKER";
-
-    // Both A5 Standee, Table-Tent, and A5 Sticker fit 2 per page in A4 Landscape!
-    // A6 Standee and A6 Sticker fit 4 per page in A4 Portrait!
     const isLandscape = isA5 || isTent || isStickerA5;
     const perPage = isLandscape ? 2 : 4;
     const pageSize = isLandscape ? "A4 landscape" : "A4 portrait";
+
+    // Chunk into even-number pages
+    const pages: any[][] = [];
+    for (let i = 0; i < batchQrList.length; i += perPage) {
+      pages.push(batchQrList.slice(i, i + perPage));
+    }
+
+    const pagesSvg = pages.map((pageItems) => generateBatchSheetSvg(pageItems, batchStandeeLayout, poweredBy));
 
     // Create iframe positioned outside screen with true physical A4 dimensions
     const iframe = document.createElement("iframe");
@@ -1632,72 +1830,6 @@ export default function MasterAdminPage() {
     const doc = iframe.contentWindow?.document;
     if (!doc) return;
 
-    // Strict page height matching A4 printable area (preventing accidental extra blank pages)
-    // A4 Portrait height: 297mm - 14mm margins = 283mm
-    // A4 Landscape height: 210mm - 14mm margins = 196mm
-    const pageHeight = isLandscape ? "196mm" : "282mm";
-
-    // Card dimensions & Typography calibrated for 100% visual consistency with modal preview
-    let gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
-    let cardHeight = "135mm";
-    let qrSize = "66mm";
-    let titleSize = "24px";
-    let subSize = "13px";
-    let badgeSize = "12px";
-    let starsSize = "24px";
-    let pillSize = "12px";
-    let pillPadding = "4px 14px";
-    let footerSize = "11.5px";
-    let cardPadding = "12px 12px 8px";
-    let isSticker = isStickerA5 || isStickerA6;
-
-    if (isA5 || isStickerA5) {
-      // 2 per sheet in A4 Landscape (138mm x 196mm each) - Bold, prominent print typography
-      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
-      cardHeight = "192mm";
-      qrSize = "92mm";
-      titleSize = "34px";
-      subSize = "16px";
-      badgeSize = "14px";
-      starsSize = "32px";
-      pillSize = "15px";
-      pillPadding = "6px 22px";
-      footerSize = "13px";
-      cardPadding = "16px 18px 12px";
-    } else if (isTent) {
-      // 2 Table-tents in A4 Landscape
-      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
-      cardHeight = "192mm";
-      qrSize = "88mm";
-      titleSize = "32px";
-      subSize = "15px";
-      badgeSize = "14px";
-      starsSize = "30px";
-      pillSize = "15px";
-      pillPadding = "5px 20px";
-      footerSize = "13px";
-      cardPadding = "16px 16px 12px";
-    } else if (isStickerA6) {
-      // 4 A6 stickers in A4 portrait (2 cols x 2 rows)
-      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
-      cardHeight = "135mm";
-      qrSize = "66mm";
-      titleSize = "24px";
-      subSize = "13px";
-      badgeSize = "12px";
-      starsSize = "24px";
-      pillSize = "12px";
-      pillPadding = "4px 14px";
-      footerSize = "11.5px";
-      cardPadding = "12px 12px 8px";
-    }
-
-    // Chunk into even-number pages so every page has exact even prints without spillover
-    const pages: any[][] = [];
-    for (let i = 0; i < batchQrList.length; i += perPage) {
-      pages.push(batchQrList.slice(i, i + perPage));
-    }
-
     doc.open();
     doc.write(`
       <!DOCTYPE html>
@@ -1706,14 +1838,13 @@ export default function MasterAdminPage() {
           <title>Print - ${
             isA5 ? "A5 Standees (2 per sheet Landscape)" :
             isStickerA5 ? "A5 Stickers (2 per sheet Landscape)" :
-            isStickerA6 ? "A6 Stickers (4 per sheet Portrait)" :
             isTent ? "Foldable Table Tents (2 per sheet Landscape)" :
             "A6 Acrylic Standees (4 per sheet Portrait)"
           }</title>
           <style>
             @page {
               size: ${pageSize};
-              margin: 7mm;
+              margin: 0; /* Zero margin - SVG has built-in 7mm balanced safe print margin */
             }
             *, *::before, *::after {
               box-sizing: border-box;
@@ -1722,194 +1853,31 @@ export default function MasterAdminPage() {
             }
             html, body {
               margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             }
-            .print-page {
-              display: grid;
-              ${gridCss}
-              width: 100%;
-              height: ${pageHeight};
-              max-height: ${pageHeight};
-              box-sizing: border-box;
-              page-break-inside: avoid;
+            .print-sheet-page {
+              width: ${isLandscape ? "297mm" : "210mm"};
+              height: ${isLandscape ? "210mm" : "297mm"};
               page-break-after: always;
               break-after: page;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto;
+              overflow: hidden;
             }
-            .print-page:last-child {
+            .print-sheet-page:last-child {
               page-break-after: avoid;
               break-after: avoid;
             }
-            .standee-card {
-              border: 2px dashed #cbd5e1;
-              border-radius: 24px;
-              padding: ${cardPadding};
-              text-align: center;
-              position: relative;
-              background: #ffffff;
-              page-break-inside: avoid;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: space-between;
-              height: ${cardHeight};
-              max-height: ${cardHeight};
+            .print-sheet-page svg {
               width: 100%;
-              box-sizing: border-box;
-              overflow: hidden;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-            }
-            .accent-bar {
-              position: absolute; top: 0; left: 0; right: 0;
-              height: ${isLandscape ? "9px" : "7px"};
-              border-radius: 24px 24px 0 0;
-              background: ${
-                isSticker
-                  ? "linear-gradient(to right, #059669, #10b981, #06b6d4) !important"
-                  : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4) !important"
-              };
-            }
-            .card-header {
-              width: 100%;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              margin-bottom: 2px;
-            }
-            .header-badge {
-              font-size: ${badgeSize};
-              font-weight: 900;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-              color: ${isSticker ? "#059669" : "#2563eb"};
-              margin-bottom: 2px;
-            }
-            .card-title {
-              font-size: ${titleSize};
-              font-weight: 800;
-              color: #0f172a;
-              margin: 1px 0 2px;
-              line-height: 1.15;
-            }
-            .card-sub {
-              font-size: ${subSize};
-              color: #64748b;
-              font-weight: 500;
-              margin: 0 0 3px;
-            }
-            .stars {
-              color: #f59e0b;
-              font-size: ${starsSize};
-              letter-spacing: 3px;
-              margin: 1px 0 3px;
-              line-height: 1;
-            }
-            .qr-container {
-              position: relative;
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              margin: auto 0;
-            }
-            .vertical-tag-id {
-              position: absolute;
-              left: -20px;
-              top: 50%;
-              transform: translateY(-50%) rotate(180deg);
-              writing-mode: vertical-rl;
-              font-family: monospace;
-              font-size: 8px;
-              font-weight: 700;
-              letter-spacing: 0.12em;
-              color: #94a3b8;
-              text-transform: uppercase;
-              user-select: none;
-            }
-            .qr-wrap {
-              display: inline-block;
-              padding: ${isLandscape ? "9px" : "7px"};
-              background: #f8fafc;
-              border: 1.5px solid #e2e8f0;
-              border-radius: 20px;
-              box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
-            }
-            .qr-img {
-              width: ${qrSize} !important;
-              height: ${qrSize} !important;
-              max-width: ${qrSize} !important;
-              max-height: ${qrSize} !important;
+              height: 100%;
               display: block;
-              border-radius: 12px;
             }
-            .card-footer {
-              width: 100%;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              margin-top: 2px;
-            }
-            .nfc-badge {
-              font-size: ${pillSize};
-              font-weight: 700;
-              color: #0369a1;
-              background: #f0f9ff;
-              padding: ${pillPadding};
-              border-radius: 9999px;
-              display: inline-block;
-              margin-bottom: 4px;
-              border: 1px solid #bae6fd;
-            }
-            .footer-brand {
-              font-size: ${footerSize};
-              color: #94a3b8;
-              border-top: 1px solid #f1f5f9;
-              padding-top: 4px;
-              width: 100%;
-              text-align: center;
-            }
-            .footer-brand strong { color: #475569; font-weight: 700; }
           </style>
         </head>
         <body>
-          ${pages.map((pageItems, pageIdx) => `
-            <div class="print-page ${pageIdx < pages.length - 1 ? 'page-break' : ''}">
-              ${pageItems.map((item) => {
-                const title = item.business?.name || "Review Us On Google";
-                const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
-                const badgeLabel = isStickerA5
-                  ? "Review Sticker (A5)"
-                  : isStickerA6
-                  ? "Review Sticker (A6)"
-                  : isTent
-                  ? "Table-Tent Standee"
-                  : isA5
-                  ? "A5 Countertop Standee"
-                  : "A6 Acrylic Standee";
-                return `
-                  <div class="standee-card">
-                    <div class="accent-bar"></div>
-                    <div class="card-header">
-                      <div class="header-badge">${badgeLabel}</div>
-                      <h1 class="card-title">${title}</h1>
-                      <div class="card-sub">${sub}</div>
-                      <div class="stars">★★★★★</div>
-                    </div>
-                    <div class="qr-container">
-                      <div class="vertical-tag-id">${item.tagCode}</div>
-                      <div class="qr-wrap">
-                        <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
-                      </div>
-                    </div>
-                    <div class="card-footer">
-                      <span class="nfc-badge">📲 Tap NFC or Scan QR</span>
-                      <div class="footer-brand">
-                        Powered by <strong>${poweredBy}</strong>
-                      </div>
-                    </div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          `).join("")}
+          ${pagesSvg.map((sheetSvg) => `<div class="print-sheet-page">${sheetSvg}</div>`).join("")}
         </body>
       </html>
     `);
@@ -1936,117 +1904,53 @@ export default function MasterAdminPage() {
     if (batchQrList.length === 0) return;
     const poweredBy = globalBranding.poweredByText || "Unbox Studio";
 
-    const isA5 = batchStandeeLayout === "A5";
-    const isTent = batchStandeeLayout === "TENT";
-    const isStickerA5 = batchStandeeLayout === "STICKER_A5";
-    const isStickerA6 = batchStandeeLayout === "STICKER_A6" || (batchStandeeLayout as string) === "STICKER";
-    const isLandscape = isA5 || isTent || isStickerA5;
-
+    const isLandscape = batchStandeeLayout === "A5" || batchStandeeLayout === "TENT" || batchStandeeLayout === "STICKER_A5";
     const perPage = isLandscape ? 2 : 4;
-    const pageItems = batchQrList.slice(0, perPage);
+    const pageItems = batchQrList.slice(activeSheetIndex * perPage, (activeSheetIndex + 1) * perPage);
+    const svgStr = generateBatchSheetSvg(pageItems.length > 0 ? pageItems : batchQrList.slice(0, perPage), batchStandeeLayout, poweredBy);
 
-    const width = isLandscape ? 1122 : 794;
-    const height = isLandscape ? 794 : 1122;
-    const widthMm = isLandscape ? "297mm" : "210mm";
-    const heightMm = isLandscape ? "210mm" : "297mm";
-
-    const gradStops = isStickerA5 || isStickerA6
-      ? `<stop offset="0%" stop-color="#059669" /><stop offset="50%" stop-color="#10b981" /><stop offset="100%" stop-color="#06b6d4" />`
-      : `<stop offset="0%" stop-color="#2563eb" /><stop offset="50%" stop-color="#4f46e5" /><stop offset="100%" stop-color="#06b6d4" />`;
-
-    const accentFill = isStickerA5 || isStickerA6 ? "#059669" : "#2563eb";
-
-    let cardsSvg = "";
-
-    if (isLandscape) {
-      const cardW = 520;
-      const cardH = 742;
-      const coords = [{ x: 26, y: 26 }, { x: 576, y: 26 }];
-      pageItems.forEach((item, idx) => {
-        const c = coords[idx];
-        if (!c) return;
-        const bLabel = isStickerA5 ? "Review Sticker (A5)" : isTent ? "Table-Tent Standee" : "A5 Countertop Standee";
-        const title = item.business?.name || "Review Us On Google";
-        const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
-        cardsSvg += `
-          <g transform="translate(${c.x}, ${c.y})">
-            <rect x="0" y="0" width="${cardW}" height="${cardH}" rx="24" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,4" />
-            <path d="M 0 24 A 24 24 0 0 1 24 0 L ${cardW - 24} 0 A 24 24 0 0 1 ${cardW} 24 L ${cardW} 9 L 0 9 Z" fill="url(#brandGrad)" />
-            <text x="${cardW/2}" y="36" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="900" fill="${accentFill}" letter-spacing="0.08em">${bLabel}</text>
-            <text x="${cardW/2}" y="76" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="34" font-weight="800" fill="#0f172a">${title.replace(/&/g, '&amp;')}</text>
-            <text x="${cardW/2}" y="104" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="500" fill="#64748b">${sub.replace(/&/g, '&amp;')}</text>
-            <text x="${cardW/2}" y="142" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="32" fill="#f59e0b" letter-spacing="6">★★★★★</text>
-            <g transform="translate(${cardW/2}, ${cardH/2 + 25})">
-              <text x="-195" y="0" text-anchor="middle" font-family="monospace" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="0.12em" transform="rotate(-90 -195 0)">${item.tagCode}</text>
-              <rect x="-180" y="-180" width="360" height="360" rx="20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
-              <image href="${item.qrDataUrl}" x="-165" y="-165" width="330" height="330" preserveAspectRatio="xMidYMid meet" />
-            </g>
-            <g transform="translate(${cardW/2}, ${cardH - 58})">
-              <rect x="-130" y="-18" width="260" height="36" rx="18" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" />
-              <text x="0" y="5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
-            </g>
-            <line x1="24" y1="${cardH - 28}" x2="${cardW - 24}" y2="${cardH - 28}" stroke="#f1f5f9" stroke-width="1" />
-            <text x="${cardW/2}" y="${cardH - 12}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${poweredBy.replace(/&/g, '&amp;')}</tspan></text>
-          </g>
-        `;
-      });
-    } else {
-      const cardW = 360;
-      const cardH = 520;
-      const coords = [
-        { x: 22, y: 22 },
-        { x: 412, y: 22 },
-        { x: 22, y: 570 },
-        { x: 412, y: 570 }
-      ];
-      pageItems.forEach((item, idx) => {
-        const c = coords[idx];
-        if (!c) return;
-        const bLabel = isStickerA6 ? "Review Sticker (A6)" : "A6 Acrylic Standee";
-        const title = item.business?.name || "Review Us On Google";
-        const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
-        cardsSvg += `
-          <g transform="translate(${c.x}, ${c.y})">
-            <rect x="0" y="0" width="${cardW}" height="${cardH}" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,3" />
-            <path d="M 0 20 A 20 20 0 0 1 20 0 L ${cardW - 20} 0 A 20 20 0 0 1 ${cardW} 20 L ${cardW} 7 L 0 7 Z" fill="url(#brandGrad)" />
-            <text x="${cardW/2}" y="28" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="900" fill="${accentFill}" letter-spacing="0.08em">${bLabel}</text>
-            <text x="${cardW/2}" y="56" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="800" fill="#0f172a">${title.replace(/&/g, '&amp;')}</text>
-            <text x="${cardW/2}" y="76" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="500" fill="#64748b">${sub.replace(/&/g, '&amp;')}</text>
-            <text x="${cardW/2}" y="104" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" fill="#f59e0b" letter-spacing="4">★★★★★</text>
-            <g transform="translate(${cardW/2}, ${cardH/2 + 20})">
-              <text x="-135" y="0" text-anchor="middle" font-family="monospace" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="0.12em" transform="rotate(-90 -135 0)">${item.tagCode}</text>
-              <rect x="-125" y="-125" width="250" height="250" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
-              <image href="${item.qrDataUrl}" x="-115" y="-115" width="230" height="230" preserveAspectRatio="xMidYMid meet" />
-            </g>
-            <g transform="translate(${cardW/2}, ${cardH - 44})">
-              <rect x="-95" y="-14" width="190" height="28" rx="14" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" />
-              <text x="0" y="4" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
-            </g>
-            <line x1="16" y1="${cardH - 22}" x2="${cardW - 16}" y2="${cardH - 22}" stroke="#f1f5f9" stroke-width="1" />
-            <text x="${cardW/2}" y="${cardH - 8}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${poweredBy.replace(/&/g, '&amp;')}</tspan></text>
-          </g>
-        `;
-      });
-    }
-
-    const fullSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}" width="${widthMm}" height="${heightMm}">
-  <defs>
-    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      ${gradStops}
-    </linearGradient>
-  </defs>
-  <rect width="${width}" height="${height}" fill="#ffffff" />
-  ${cardsSvg}
-</svg>`;
-
+    const fullSvg = `<?xml version="1.0" encoding="UTF-8"?>\n` + svgStr;
     const blob = new Blob([fullSvg], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `print-layout-${batchStandeeLayout.toLowerCase()}.svg`;
+    link.download = `print-sheet-${batchStandeeLayout.toLowerCase()}-sheet-${activeSheetIndex + 1}.svg`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleExportBatchPng = () => {
+    if (batchQrList.length === 0) return;
+    const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+
+    const isLandscape = batchStandeeLayout === "A5" || batchStandeeLayout === "TENT" || batchStandeeLayout === "STICKER_A5";
+    const perPage = isLandscape ? 2 : 4;
+    const pageItems = batchQrList.slice(activeSheetIndex * perPage, (activeSheetIndex + 1) * perPage);
+    const svgStr = generateBatchSheetSvg(pageItems.length > 0 ? pageItems : batchQrList.slice(0, perPage), batchStandeeLayout, poweredBy);
+
+    const fullSvg = `<?xml version="1.0" encoding="UTF-8"?>\n` + svgStr;
+    const blob = new Blob([fullSvg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      // 300 DPI high-resolution sheet
+      canvas.width = isLandscape ? 2970 : 2100;
+      canvas.height = isLandscape ? 2100 : 2970;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = `print-sheet-${batchStandeeLayout.toLowerCase()}-sheet-${activeSheetIndex + 1}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
   };
   const handleExportNfcCsv = (batchFilter?: string) => {
     const listToExport = tags.filter((t) => (batchFilter && batchFilter !== "ALL" ? t.batchCode === batchFilter : true));
@@ -6880,7 +6784,7 @@ export default function MasterAdminPage() {
                 <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold gap-1">
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("A5")}
+                    onClick={() => { setBatchStandeeLayout("A5"); setActiveSheetIndex(0); }}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
                       batchStandeeLayout === "A5" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -6889,7 +6793,7 @@ export default function MasterAdminPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("A6")}
+                    onClick={() => { setBatchStandeeLayout("A6"); setActiveSheetIndex(0); }}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
                       batchStandeeLayout === "A6" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -6898,7 +6802,7 @@ export default function MasterAdminPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("TENT")}
+                    onClick={() => { setBatchStandeeLayout("TENT"); setActiveSheetIndex(0); }}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
                       batchStandeeLayout === "TENT" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -6907,7 +6811,7 @@ export default function MasterAdminPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("STICKER_A5")}
+                    onClick={() => { setBatchStandeeLayout("STICKER_A5"); setActiveSheetIndex(0); }}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
                       batchStandeeLayout === "STICKER_A5" ? "bg-white text-emerald-600 shadow-sm font-bold border border-emerald-200" : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -6916,7 +6820,7 @@ export default function MasterAdminPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("STICKER_A6")}
+                    onClick={() => { setBatchStandeeLayout("STICKER_A6"); setActiveSheetIndex(0); }}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
                       batchStandeeLayout === "STICKER_A6" ? "bg-white text-emerald-600 shadow-sm font-bold border border-emerald-200" : "text-slate-600 hover:text-slate-900"
                     }`}
@@ -6928,11 +6832,21 @@ export default function MasterAdminPage() {
                 <button
                   type="button"
                   onClick={handleExportBatchSvg}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95"
-                  title="Download vector SVG of the print layout"
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95"
+                  title="Download vector SVG of the exact print sheet"
                 >
                   <Download className="w-4 h-4 text-slate-600" />
                   <span>Export SVG</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportBatchPng}
+                  className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95"
+                  title="Download 300 DPI high-resolution PNG of the print sheet"
+                >
+                  <Download className="w-4 h-4 text-blue-600" />
+                  <span>Export PNG</span>
                 </button>
 
                 <button
@@ -6969,63 +6883,65 @@ export default function MasterAdminPage() {
               </div>
             ) : batchQrList.length === 0 ? (
               <div className="p-12 text-center text-slate-400 text-xs">No standees available to print.</div>
-            ) : (
-              <div className={`grid gap-4 max-h-[65vh] overflow-y-auto p-2 ${
-                (batchStandeeLayout === "A5" || batchStandeeLayout === "TENT" || batchStandeeLayout === "STICKER_A5")
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
-              }`}>
-                {batchQrList.map((item) => {
-                  const title = item.business?.name || "Review Us On Google";
-                  const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
-                  return (
-                    <div
-                      key={item.tagCode}
-                      className="p-4 border-2 border-dashed border-slate-300 rounded-3xl text-center bg-white shadow-sm flex flex-col items-center justify-between relative overflow-hidden transition-all hover:border-blue-400 hover:shadow-md"
-                    >
-                      {/* Top Accent Gradient Bar */}
-                      <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500" />
+            ) : (() => {
+              const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+              const isLandscape = batchStandeeLayout === "A5" || batchStandeeLayout === "TENT" || batchStandeeLayout === "STICKER_A5";
+              const perPage = isLandscape ? 2 : 4;
+              const totalPages = Math.ceil(batchQrList.length / perPage);
+              const safePageIndex = Math.min(activeSheetIndex, Math.max(0, totalPages - 1));
+              const currentSheetItems = batchQrList.slice(safePageIndex * perPage, (safePageIndex + 1) * perPage);
+              const currentSheetSvg = generateBatchSheetSvg(currentSheetItems, batchStandeeLayout, poweredBy);
 
-                      <div className="w-full pt-1">
-                        <div className="text-[10px] font-black uppercase text-blue-600 tracking-wider mb-0.5">
-                          Countertop Standee
-                        </div>
-                        <h5 className="font-extrabold text-sm text-slate-900 truncate px-1">
-                          {title}
-                        </h5>
-                        <p className="text-[10px] text-slate-500 truncate mb-1">{sub}</p>
-                        <div className="text-amber-400 text-sm tracking-widest my-0.5">★★★★★</div>
-                      </div>
-
-                      <div className="my-2 relative inline-flex items-center justify-center">
-                        {/* 8px Tag ID Outside QR box on Left */}
-                        <div
-                          className="absolute -left-5 top-1/2 -translate-y-1/2 font-mono text-[8px] font-bold text-slate-400 select-none tracking-wider uppercase pointer-events-none"
-                          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-                          title={`Tag: ${item.tagCode}`}
-                        >
-                          {item.tagCode}
-                        </div>
-                        <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-3xl shadow-inner">
-                          <img src={item.qrDataUrl} alt={item.tagCode} className="w-44 h-44 sm:w-52 sm:h-52 block mx-auto rounded-2xl" />
-                        </div>
-                      </div>
-
-                      <div className="w-full">
-                        <div>
-                          <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full inline-block">
-                            📲 Tap NFC or Scan QR
-                          </span>
-                        </div>
-                        <div className="text-[9px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
-                          Powered by <strong className="text-slate-600">{globalBranding.poweredByText || "Unbox Studio"}</strong>
-                        </div>
-                      </div>
+              return (
+                <div className="space-y-4">
+                  {/* Sheet Pagination Header */}
+                  <div className="flex items-center justify-between bg-slate-100 px-4 py-2.5 rounded-2xl text-xs">
+                    <div className="font-bold text-slate-700 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>
+                        Sheet {safePageIndex + 1} of {totalPages} ({currentSheetItems.length} prints on this A4 sheet)
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={safePageIndex === 0}
+                          onClick={() => setActiveSheetIndex(safePageIndex - 1)}
+                          className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          ← Previous Sheet
+                        </button>
+                        <span className="font-mono text-slate-500 px-1">
+                          {safePageIndex + 1}/{totalPages}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={safePageIndex >= totalPages - 1}
+                          onClick={() => setActiveSheetIndex(safePageIndex + 1)}
+                          className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Next Sheet →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 100% Exact 1:1 Vector SVG Sheet Preview */}
+                  <div className="flex items-center justify-center p-3 bg-slate-100/60 rounded-3xl border border-slate-200 overflow-x-auto">
+                    <div
+                      className="bg-white rounded-2xl shadow-xl border border-slate-300 overflow-hidden shrink-0 transition-transform"
+                      style={{
+                        width: isLandscape ? "720px" : "510px",
+                        maxWidth: "100%",
+                      }}
+                      dangerouslySetInnerHTML={{ __html: currentSheetSvg }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
