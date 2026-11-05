@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -52,7 +52,6 @@ export default async function TagResolverPage({ params }: Props) {
   if (tag.status === "ASSIGNED" && tag.business) {
     const headersList = headers();
     const userAgent = headersList.get("user-agent") || undefined;
-    const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || undefined;
 
     // Log the scan asynchronously
     try {
@@ -80,25 +79,76 @@ export default async function TagResolverPage({ params }: Props) {
     redirect(`/r/${tag.business.slug}`);
   }
 
-  // CASE 2: TAG IS UNASSIGNED (BLANK HARDWARE) -> Open Claiming & Setup Studio!
+  // CASE 2: TAG IS UNASSIGNED (BLANK HARDWARE) -> Open Claiming & Configuration Studio!
   const session = await getSession();
 
   // If user is logged-in Super Admin or Business Admin, retrieve businesses for quick-linking
-  let businesses: { id: string; name: string; slug: string; city: string | null }[] = [];
+  let businesses: { id: string; name: string; slug: string; city: string | null; phone: string | null }[] = [];
   if (session) {
     if (session.role === "SUPER_ADMIN") {
       businesses = await db.business.findMany({
-        select: { id: true, name: true, slug: true, city: true },
+        select: { id: true, name: true, slug: true, city: true, phone: true },
         orderBy: { name: "asc" },
       });
     } else if (session.businessId) {
       const b = await db.business.findUnique({
         where: { id: session.businessId },
-        select: { id: true, name: true, slug: true, city: true },
+        select: { id: true, name: true, slug: true, city: true, phone: true },
       });
       if (b) businesses = [b];
     }
   }
+
+  // Fetch active plans for customer / admin selection
+  const rawPlans = await db.plan.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: "asc" }, { monthlyPrice: "asc" }],
+  });
+
+  const plans =
+    rawPlans.length > 0
+      ? rawPlans.map((p) => ({
+          code: p.code,
+          name: p.name,
+          description: p.description,
+          monthlyPrice: p.monthlyPrice,
+          annualPrice: p.annualPrice,
+          isPopular: p.isPopular,
+        }))
+      : [
+          {
+            code: "STARTER",
+            name: "Starter Launch",
+            description: "Ideal for single-counter local shops",
+            monthlyPrice: 350,
+            annualPrice: 3500,
+            isPopular: false,
+          },
+          {
+            code: "GROWTH",
+            name: "Growth Pro",
+            description: "Most popular for busy cafes & clinics",
+            monthlyPrice: 800,
+            annualPrice: 5000,
+            isPopular: true,
+          },
+          {
+            code: "PRO",
+            name: "Enterprise Elite",
+            description: "Multi-counter high-volume establishments",
+            monthlyPrice: 1500,
+            annualPrice: 12000,
+            isPopular: false,
+          },
+        ];
+
+  // Fetch payment config for Razorpay checkout
+  const dbKeyId = await db.systemSetting.findUnique({ where: { key: "payment_key_id" } });
+  const paymentKeyId =
+    dbKeyId?.value?.trim() || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "";
+
+  const dbUpi = await db.systemSetting.findUnique({ where: { key: "payment_manual_upi_id" } });
+  const manualUpiId = dbUpi?.value || "";
 
   return (
     <TagClaimClient
@@ -110,8 +160,11 @@ export default async function TagResolverPage({ params }: Props) {
         status: tag.status,
         label: tag.label,
       }}
-      session={session ? { email: session.email, name: session.name, role: session.role } : null}
+      session={session ? { id: session.id, email: session.email, name: session.name, role: session.role } : null}
       businesses={businesses}
+      plans={plans}
+      paymentKeyId={paymentKeyId}
+      manualUpiId={manualUpiId}
     />
   );
 }
