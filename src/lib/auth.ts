@@ -5,11 +5,13 @@ import { db } from "./db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-review-super-secret-jwt-key-2026-prod-xyz";
 
+export type UserRole = "SUPER_ADMIN" | "BUSINESS_ADMIN" | "AGENT" | "FIELD_AGENT";
+
 export interface SessionUser {
   id: string;
   email: string;
   name: string;
-  role: "SUPER_ADMIN" | "BUSINESS_ADMIN";
+  role: UserRole;
   businessId?: string | null;
 }
 

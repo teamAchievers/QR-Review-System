@@ -45,9 +45,30 @@ import {
   Wifi,
   Zap,
   CheckCircle2,
+  Users,
+  UserPlus,
+  UserCheck,
+  Briefcase,
+  Wrench,
 } from "lucide-react";
 import { NICHE_CONFIGS } from "@/lib/niches";
 import { convertFromInr, convertInrToUsd, convertUsdToInr, formatCurrency, CURRENCY_METADATA, isCurrencyStrongerThanInr } from "@/lib/currency";
+
+export interface UserItem {
+  id: string;
+  email: string;
+  name: string;
+  role: "SUPER_ADMIN" | "BUSINESS_ADMIN" | "AGENT" | "FIELD_AGENT";
+  businessId: string | null;
+  business?: {
+    id: string;
+    name: string;
+    slug: string;
+    city?: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt?: string;
+}
 
 interface BusinessWithUser {
   id: string;
@@ -80,7 +101,7 @@ interface BusinessWithUser {
   lastPaymentDate: string | null;
   billingNotes: string | null;
   createdAt: string;
-  users: { id: string; email: string; name: string }[];
+  users: { id: string; email: string; name: string; role?: string }[];
   _count: {
     feedbacks: number;
     scanLogs: number;
@@ -146,6 +167,101 @@ export default function MasterAdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [subscriptionFilter, setSubscriptionFilter] = useState<string>("ALL");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+
+  // Team, Agents & Field Operations State
+  const [usersModalOpen, setUsersModalOpen] = useState(false);
+  const [usersList, setUsersList] = useState<UserItem[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userFilterRole, setUserFilterRole] = useState<string>("ALL");
+  const [userSearchTerm, setUserSearchTerm] = useState<string>("");
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    agents: 0,
+    fieldAgents: 0,
+    businessAdmins: 0,
+    superAdmins: 0,
+  });
+
+  // Create User Form State
+  const [createUserDrawerOpen, setCreateUserDrawerOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "AGENT" as "AGENT" | "FIELD_AGENT" | "BUSINESS_ADMIN" | "SUPER_ADMIN",
+    businessId: "NONE",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
+  const [userSuccessMsg, setUserSuccessMsg] = useState<string | null>(null);
+
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data.users || []);
+        if (data.stats) setUserStats(data.stats);
+      }
+    } catch (e) {
+      console.error("fetchUsers error", e);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleCreateNewUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingUser(true);
+    setUserErrorMsg(null);
+    setUserSuccessMsg(null);
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUserForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setUserErrorMsg(data.error || "Failed to create user");
+      } else {
+        setUserSuccessMsg(data.message || "User created successfully!");
+        setNewUserForm({
+          name: "",
+          email: "",
+          password: "",
+          role: "AGENT",
+          businessId: "NONE",
+        });
+        fetchUsers();
+        setTimeout(() => {
+          setCreateUserDrawerOpen(false);
+          setUserSuccessMsg(null);
+        }, 1200);
+      }
+    } catch (err: any) {
+      setUserErrorMsg("Error creating user");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete user "${userName}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete user");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Standee Orders State
   const [ordersModalOpen, setOrdersModalOpen] = useState(false);
@@ -892,6 +1008,7 @@ export default function MasterAdminPage() {
     adminName: "",
     adminEmail: "",
     adminPassword: "",
+    adminRole: "BUSINESS_ADMIN" as "BUSINESS_ADMIN" | "AGENT" | "FIELD_AGENT",
   });
 
   const [formData, setFormData] = useState({
@@ -918,6 +1035,7 @@ export default function MasterAdminPage() {
     adminName: "",
     adminEmail: "",
     adminPassword: "",
+    adminRole: "BUSINESS_ADMIN" as "BUSINESS_ADMIN" | "AGENT" | "FIELD_AGENT",
   });
 
   // ==========================================
@@ -2468,6 +2586,7 @@ export default function MasterAdminPage() {
           adminName: "",
           adminEmail: "",
           adminPassword: "",
+          adminRole: "BUSINESS_ADMIN",
         });
         fetchStats();
       }
@@ -2512,6 +2631,7 @@ export default function MasterAdminPage() {
       adminName: user ? user.name : "",
       adminEmail: user ? user.email : "",
       adminPassword: "", // Leave blank unless changing
+      adminRole: ((user?.role as any) || "BUSINESS_ADMIN") as "BUSINESS_ADMIN" | "AGENT" | "FIELD_AGENT",
     });
     setErrorMsg(null);
     setEditModalOpen(true);
@@ -2651,6 +2771,22 @@ export default function MasterAdminPage() {
             )}
           </button>
 
+          <button
+            onClick={() => {
+              fetchUsers();
+              setUsersModalOpen(true);
+            }}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+            title="Manage Agents, Field Deployment Executives & Staff accounts"
+          >
+            <Users className="w-4 h-4 text-purple-400" />
+            <span>Agents &amp; Staff</span>
+            {userStats.agents + userStats.fieldAgents > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                {userStats.agents + userStats.fieldAgents}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => {
               fetchGlobalBranding();
@@ -4774,6 +4910,60 @@ export default function MasterAdminPage() {
                 <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-3">
                   4. Client Login &amp; Password
                 </h4>
+                {/* Role selection for new account */}
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">User Account Type / Role</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, adminRole: "BUSINESS_ADMIN" })}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        formData.adminRole === "BUSINESS_ADMIN"
+                          ? "bg-blue-600/20 border-blue-500 text-white shadow-xs"
+                          : "bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-xs font-bold text-white">Business Admin</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Client business owner</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, adminRole: "AGENT" })}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        formData.adminRole === "AGENT"
+                          ? "bg-purple-600/20 border-purple-500 text-white shadow-xs"
+                          : "bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <Briefcase className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-xs font-bold text-white">Sales Agent</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Onboards &amp; manages</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, adminRole: "FIELD_AGENT" })}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        formData.adminRole === "FIELD_AGENT"
+                          ? "bg-emerald-600/20 border-emerald-500 text-white shadow-xs"
+                          : "bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <Wrench className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-xs font-bold text-white">Field Agent</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">NFC standee installer</p>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Name</label>

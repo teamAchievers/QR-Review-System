@@ -10,7 +10,7 @@ export async function GET() {
 
   const businesses = await db.business.findMany({
     include: {
-      users: { select: { id: true, email: true, name: true } },
+      users: { select: { id: true, email: true, name: true, role: true } },
       _count: {
         select: {
           feedbacks: true,
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       adminName,
       adminEmail,
       adminPassword,
+      adminRole = "BUSINESS_ADMIN",
       poweredByText = "Unbox Studio",
       poweredByUrl = "https://unboxstudio.com",
       subscriptionStatus = "ACTIVE",
@@ -98,9 +99,8 @@ export async function POST(req: NextRequest) {
           tripadvisorEnabled: tripadvisorEnabled !== undefined ? Boolean(tripadvisorEnabled) : true,
           keywords: keywords ? keywords.trim() : "friendly staff, excellent service, great quality, highly recommended",
           targetTone: targetTone || "enthusiastic and authentic",
-          status: "ACTIVE",
-          poweredByText: poweredByText ? poweredByText.trim() : "Unbox Studio",
-          poweredByUrl: poweredByUrl ? poweredByUrl.trim() : "https://unboxstudio.com",
+          poweredByText: poweredByText || "Unbox Studio",
+          poweredByUrl: poweredByUrl || "https://unboxstudio.com",
           subscriptionStatus: subscriptionStatus || "ACTIVE",
           planTier: planTier || "GROWTH",
           billingCycle: billingCycle || "MONTHLY",
@@ -109,12 +109,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const userRole = ["AGENT", "FIELD_AGENT", "BUSINESS_ADMIN", "SUPER_ADMIN"].includes(adminRole)
+        ? adminRole
+        : "BUSINESS_ADMIN";
+
       const user = await tx.user.create({
         data: {
           name: adminName ? adminName.trim() : `${name} Admin`,
           email: adminEmail.toLowerCase().trim(),
           password: hashedPassword,
-          role: "BUSINESS_ADMIN",
+          role: userRole,
           businessId: business.id,
         },
       });
@@ -124,16 +128,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Business profile and admin user created successfully",
+      message: "Business, subscription, and user account created successfully",
       business: result.business,
       user: {
         id: result.user.id,
-        name: result.user.name,
         email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
       },
     });
   } catch (err: any) {
-    console.error("Create business error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Failed to create business & user:", err);
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }

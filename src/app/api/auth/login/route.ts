@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyPassword, createToken } from "@/lib/auth";
+import { verifyPassword, createToken, UserRole } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role as "SUPER_ADMIN" | "BUSINESS_ADMIN",
+      role: user.role as UserRole,
       businessId: user.businessId,
     };
 
