@@ -1007,7 +1007,9 @@ export default function MasterAdminPage() {
       if (res.ok && data.success) {
         setBatchModalOpen(false);
         setSuccessMsg(data.message || "Batch generated successfully!");
-        fetchTags();
+        setSelectedTagBatch("ALL");
+        setSelectedTagStatus("ALL");
+        fetchTags("ALL", "ALL", "");
       } else {
         alert(data.error || "Failed to generate batch");
       }
@@ -1386,7 +1388,14 @@ export default function MasterAdminPage() {
     fetchOffers();
     fetchGlobalBranding();
     fetchPaymentConfig();
+    fetchTags();
   }, [fetchStats]);
+
+  useEffect(() => {
+    if (adminTab === "TAGS") {
+      fetchTags();
+    }
+  }, [adminTab]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
