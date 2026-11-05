@@ -6583,6 +6583,8 @@ export default function MasterAdminPage() {
                     onChange={(e) => setBatchForm({ ...batchForm, count: Number(e.target.value) })}
                     className="w-full text-xs p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
+                    <option value={1}>1 Unit</option>
+                    <option value={5}>5 Units</option>
                     <option value={10}>10 Units</option>
                     <option value={25}>25 Units</option>
                     <option value={50}>50 Units</option>
