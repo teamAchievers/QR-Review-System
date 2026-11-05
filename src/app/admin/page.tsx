@@ -851,6 +851,10 @@ export default function MasterAdminPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Admin Geo & Currency State (Default to INR based on domestic IP location)
+  const [adminCurrency, setAdminCurrency] = useState<string>("INR");
+  const [adminCurrencySymbol, setAdminCurrencySymbol] = useState<string>("₹");
+
   // Edit Business & User Modal State
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<BusinessWithUser | null>(null);
@@ -877,7 +881,7 @@ export default function MasterAdminPage() {
     subscriptionStatus: "ACTIVE",
     planTier: "GROWTH",
     billingCycle: "MONTHLY",
-    planPrice: 79,
+    planPrice: 800,
     currentPeriodEnd: "",
     billingNotes: "",
     adminUserId: "",
@@ -906,7 +910,7 @@ export default function MasterAdminPage() {
     subscriptionStatus: "ACTIVE",
     planTier: "GROWTH",
     billingCycle: "MONTHLY",
-    planPrice: 79,
+    planPrice: 800,
     adminName: "",
     adminEmail: "",
     adminPassword: "",
@@ -1390,6 +1394,17 @@ export default function MasterAdminPage() {
     fetchGlobalBranding();
     fetchPaymentConfig();
     fetchTags();
+
+    // Auto-detect IP location & currency (defaulting to domestic INR)
+    fetch("/api/geo/detect")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.currency) {
+          setAdminCurrency(data.currency);
+          setAdminCurrencySymbol(data.symbol || (CURRENCY_METADATA[data.currency]?.symbol || "₹"));
+        }
+      })
+      .catch((err) => console.warn("Admin IP geo detect warning:", err));
   }, [fetchStats]);
 
   useEffect(() => {
@@ -1455,7 +1470,7 @@ export default function MasterAdminPage() {
           subscriptionStatus: "ACTIVE",
           planTier: "GROWTH",
           billingCycle: "MONTHLY",
-          planPrice: 79,
+          planPrice: 800,
           adminName: "",
           adminEmail: "",
           adminPassword: "",
@@ -1496,7 +1511,7 @@ export default function MasterAdminPage() {
       subscriptionStatus: b.subscriptionStatus || "ACTIVE",
       planTier: b.planTier || "GROWTH",
       billingCycle: b.billingCycle || "MONTHLY",
-      planPrice: b.planPrice || 79,
+      planPrice: b.planPrice || 800,
       currentPeriodEnd: b.currentPeriodEnd ? new Date(b.currentPeriodEnd).toISOString().split("T")[0] : "",
       billingNotes: b.billingNotes || "",
       adminUserId: user ? user.id : "",
@@ -1884,7 +1899,7 @@ export default function MasterAdminPage() {
                       <td className="py-4 px-3 text-slate-300">
                         <div className="font-semibold text-white">{b.planTier || "GROWTH"}</div>
                         <div className="text-[11px] text-emerald-400 font-medium">
-                          ${b.planPrice || 49} / {b.billingCycle === "ANNUAL" ? "yr" : "mo"}
+                          {adminCurrencySymbol}{b.planPrice || 800} / {b.billingCycle === "ANNUAL" ? "yr" : "mo"}
                         </div>
                       </td>
                       <td className="py-4 px-3">
@@ -3422,18 +3437,36 @@ export default function MasterAdminPage() {
                     <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Tier</label>
                     <select
                       value={editFormData.planTier}
-                      onChange={(e) => setEditFormData({ ...editFormData, planTier: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => {
+                        const tier = e.target.value;
+                        const foundPlan = plans.find((p) => p.code === tier);
+                        const fallbackPrices: Record<string, number> = { STARTER: 350, GROWTH: 800, PRO: 1500, ENTERPRISE: 2500 };
+                        const price = foundPlan ? foundPlan.monthlyPrice : (fallbackPrices[tier] || 800);
+                        setEditFormData({ ...editFormData, planTier: tier, planPrice: price });
+                      }}
+                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     >
-                      <option value="STARTER">STARTER ($49/mo)</option>
-                      <option value="GROWTH">GROWTH ($79/mo)</option>
-                      <option value="PRO">PRO ($149/mo)</option>
-                      <option value="ENTERPRISE">ENTERPRISE ($299/mo)</option>
+                      {plans && plans.length > 0 ? (
+                        plans.map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {p.name} ({adminCurrencySymbol}{p.monthlyPrice}/mo)
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="STARTER">STARTER ({adminCurrencySymbol}350/mo)</option>
+                          <option value="GROWTH">GROWTH ({adminCurrencySymbol}800/mo)</option>
+                          <option value="PRO">PRO ({adminCurrencySymbol}1500/mo)</option>
+                          <option value="ENTERPRISE">ENTERPRISE ({adminCurrencySymbol}2500/mo)</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Price ($)</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Plan Price ({adminCurrencySymbol})
+                    </label>
                     <input
                       type="number"
                       value={editFormData.planPrice}
@@ -3817,15 +3850,27 @@ export default function MasterAdminPage() {
                       value={formData.planTier}
                       onChange={(e) => {
                         const tier = e.target.value;
-                        const prices: Record<string, number> = { STARTER: 49, GROWTH: 79, PRO: 149, ENTERPRISE: 299 };
-                        setFormData({ ...formData, planTier: tier, planPrice: prices[tier] || 79 });
+                        const foundPlan = plans.find((p) => p.code === tier);
+                        const fallbackPrices: Record<string, number> = { STARTER: 350, GROWTH: 800, PRO: 1500, ENTERPRISE: 2500 };
+                        const price = foundPlan ? foundPlan.monthlyPrice : (fallbackPrices[tier] || 800);
+                        setFormData({ ...formData, planTier: tier, planPrice: price });
                       }}
-                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     >
-                      <option value="STARTER">STARTER ($49/mo)</option>
-                      <option value="GROWTH">GROWTH ($79/mo)</option>
-                      <option value="PRO">PRO ($149/mo)</option>
-                      <option value="ENTERPRISE">ENTERPRISE ($299/mo)</option>
+                      {plans && plans.length > 0 ? (
+                        plans.map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {p.name} ({adminCurrencySymbol}{p.monthlyPrice}/mo)
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="STARTER">STARTER ({adminCurrencySymbol}350/mo)</option>
+                          <option value="GROWTH">GROWTH ({adminCurrencySymbol}800/mo)</option>
+                          <option value="PRO">PRO ({adminCurrencySymbol}1500/mo)</option>
+                          <option value="ENTERPRISE">ENTERPRISE ({adminCurrencySymbol}2500/mo)</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -3834,7 +3879,7 @@ export default function MasterAdminPage() {
                     <select
                       value={formData.subscriptionStatus}
                       onChange={(e) => setFormData({ ...formData, subscriptionStatus: e.target.value })}
-                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-xs p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     >
                       <option value="ACTIVE">ACTIVE (Paid)</option>
                       <option value="DUE">DUE (Invoice Pending)</option>
@@ -3842,7 +3887,9 @@ export default function MasterAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Monthly Price ($)</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Monthly Price ({adminCurrencySymbol})
+                    </label>
                     <input
                       type="number"
                       value={formData.planPrice}

@@ -43,14 +43,14 @@ export async function GET(req: NextRequest) {
     // Default to "IN" if detection inconclusive
     country = (country || "IN").toUpperCase();
 
-    // 3. Resolve currency for detected country
-    const detectedCurrency: SupportedCurrency = COUNTRY_TO_CURRENCY_MAP[country] || "USD";
+    // 3. Resolve currency for detected country (defaults to INR)
+    const detectedCurrency: SupportedCurrency = COUNTRY_TO_CURRENCY_MAP[country] || "INR";
 
     // 4. Check if admin configured custom multiplier
     const multSetting = await db.systemSetting.findUnique({ where: { key: "currency_usd_multiplier" } });
     const strongerMultiplier = Number(multSetting?.value) || 1.5;
 
-    const meta = CURRENCY_METADATA[detectedCurrency] || CURRENCY_METADATA["USD"];
+    const meta = CURRENCY_METADATA[detectedCurrency] || CURRENCY_METADATA["INR"];
     const isStronger = isCurrencyStrongerThanInr(detectedCurrency, meta.inrRate);
     const multiplier = getCurrencyMultiplier(detectedCurrency, strongerMultiplier, meta.inrRate);
 
