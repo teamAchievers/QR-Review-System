@@ -1394,23 +1394,20 @@ export default function MasterAdminPage() {
             .stars { color: #f59e0b; font-size: 26px; letter-spacing: 4px; margin: 8px 0; }
             h2 { font-size: 17px; font-weight: 800; color: #1e293b; margin: 12px 0 4px; }
             .subtitle { font-size: 12px; color: #64748b; margin: 0 0 18px; line-height: 1.4; }
-            .qr-wrap {
+            .qr-container {
               position: relative; display: inline-flex; align-items: center; justify-content: center;
-              padding: 12px 14px 12px 38px; background: #ffffff; border: 2.5px solid #e2e8f0;
-              border-radius: 24px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+              margin-bottom: 16px;
             }
             .vertical-tag-id {
-              position: absolute; left: 8px; top: 50%; transform: translateY(-50%) rotate(180deg);
-              writing-mode: vertical-rl; font-family: monospace; font-size: 11px; font-weight: 800;
-              letter-spacing: 0.12em; color: #334155; background: #f1f5f9; padding: 8px 4px;
-              border-radius: 6px; border: 1px solid #cbd5e1; text-transform: uppercase;
+              position: absolute; left: -20px; top: 50%; transform: translateY(-50%) rotate(180deg);
+              writing-mode: vertical-rl; font-family: monospace; font-size: 8px; font-weight: 700;
+              letter-spacing: 0.14em; color: #64748b; text-transform: uppercase; user-select: none;
+            }
+            .qr-wrap {
+              display: inline-block; padding: 12px; background: #ffffff; border: 2.5px solid #e2e8f0;
+              border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);
             }
             .qr-img { width: 200px; height: 200px; display: block; border-radius: 12px; }
-            .tag-pill {
-              font-family: monospace; font-size: 12px; font-weight: 800; color: #0f172a;
-              background: #f1f5f9; padding: 4px 12px; border-radius: 8px; display: inline-block;
-              border: 1px solid #cbd5e1; margin-bottom: 14px; letter-spacing: 0.05em;
-            }
             .nfc-badge {
               font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe;
               padding: 6px 16px; border-radius: 9999px; display: inline-block; margin-bottom: 6px;
@@ -1434,12 +1431,11 @@ export default function MasterAdminPage() {
             <div class="stars">★★★★★</div>
             <h2>How Was Your Experience?</h2>
             <div class="subtitle">Tap your phone here (NFC) or scan with camera to share your review in 15 seconds</div>
-            <div class="qr-wrap">
+            <div class="qr-container">
               <div class="vertical-tag-id">${tagItem.tagCode}</div>
-              <img src="${qrUrl}" class="qr-img" alt="Scan QR Standee" />
-            </div>
-            <div>
-              <div class="tag-pill">${tagItem.tagCode}</div>
+              <div class="qr-wrap">
+                <img src="${qrUrl}" class="qr-img" alt="Scan QR Standee" />
+              </div>
             </div>
             <div>
               <span class="nfc-badge">📲 Instant Tap &amp; Scan • No App Needed</span>
@@ -1525,9 +1521,9 @@ export default function MasterAdminPage() {
     ctx.lineWidth = 8;
     ctx.beginPath();
     if (typeof (ctx as any).roundRect === "function") {
-      (ctx as any).roundRect(240, 560, 720, 680, [40]);
+      (ctx as any).roundRect(260, 560, 680, 680, [40]);
     } else {
-      ctx.rect(240, 560, 720, 680);
+      ctx.rect(260, 560, 680, 680);
     }
     ctx.fill();
     ctx.stroke();
@@ -1535,48 +1531,19 @@ export default function MasterAdminPage() {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Draw QR image offset slightly to accommodate left vertical tag
-      ctx.drawImage(img, 330, 600, 600, 600);
+      // Draw QR image centered in box
+      ctx.drawImage(img, 300, 600, 600, 600);
 
-      // Vertical Tag ID on left corner/side of QR Box
+      // Vertical Tag ID OUTSIDE left side of QR Box (8px equivalent)
       ctx.save();
-      ctx.translate(285, 900);
+      ctx.translate(225, 900);
       ctx.rotate(-Math.PI / 2);
-      ctx.fillStyle = "#f1f5f9";
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 4;
-      ctx.font = "bold 28px monospace";
-      const tagW = ctx.measureText(tagItem.tagCode).width;
-      if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(-tagW / 2 - 16, -24, tagW + 32, 48, [12]);
-      } else {
-        ctx.rect(-tagW / 2 - 16, -24, tagW + 32, 48);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#0f172a";
+      ctx.fillStyle = "#64748b";
+      ctx.font = "bold 20px monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(tagItem.tagCode, 0, 0);
       ctx.restore();
-
-      // Monospace Tag Chip Bottom
-      ctx.fillStyle = "#f1f5f9";
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(390, 1280, 420, 70, [16]);
-      } else {
-        ctx.rect(390, 1280, 420, 70);
-      }
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#0f172a";
-      ctx.font = "bold 34px monospace";
-      ctx.fillText(tagItem.tagCode, 600, 1328);
 
       // NFC / Instant Tap Badge
       ctx.fillStyle = "#e0f2fe";
@@ -1728,49 +1695,38 @@ export default function MasterAdminPage() {
               color: #64748b;
               margin-bottom: ${isA5 ? "6px" : "4px"};
             }
-            .qr-wrap {
+            .qr-container {
               position: relative;
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              padding: ${isA5 ? "10px 14px 10px 36px" : isSticker ? "3px 4px 3px 20px" : "6px 8px 6px 28px"};
-              background: #ffffff;
-              border: ${isSticker ? "1.5px solid #e2e8f0" : "2px solid #e2e8f0"};
-              border-radius: ${isSticker ? "8px" : "16px"};
-              margin: ${isSticker ? "1px 0" : "3px 0"};
+              margin: ${isSticker ? "1px 0" : "4px 0"};
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isSticker ? "3px" : "6px"};
+              left: ${isSticker ? "-12px" : "-16px"};
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
               font-family: monospace;
-              font-size: ${isA5 ? "11px" : isSticker ? "7px" : "8px"};
-              font-weight: 800;
+              font-size: 8px;
+              font-weight: 700;
               letter-spacing: 0.1em;
-              color: #334155;
-              background: #f1f5f9;
-              padding: ${isSticker ? "2px 1px" : "4px 2px"};
-              border-radius: 4px;
-              border: 1px solid #cbd5e1;
+              color: #64748b;
               text-transform: uppercase;
+              user-select: none;
+            }
+            .qr-wrap {
+              display: inline-block;
+              padding: ${isSticker ? "3px" : "6px"};
+              background: #ffffff;
+              border: ${isSticker ? "1.5px solid #e2e8f0" : "2px solid #e2e8f0"};
+              border-radius: ${isSticker ? "8px" : "14px"};
             }
             .qr-img {
               width: ${qrSize};
               height: ${qrSize};
               display: block;
-            }
-            .tag-pill {
-              font-family: monospace;
-              font-size: ${isA5 ? "12px" : isSticker ? "8px" : "10px"};
-              font-weight: 800;
-              color: #0f172a;
-              background: #f1f5f9;
-              padding: ${isSticker ? "1px 6px" : "2px 8px"};
-              border-radius: 6px;
-              border: 1px solid #cbd5e1;
-              margin: ${isSticker ? "1px 0" : "2px 0"};
             }
             .nfc-badge {
               font-size: ${isA5 ? "11px" : isSticker ? "8px" : "9px"};
@@ -1807,11 +1763,12 @@ export default function MasterAdminPage() {
                   <h1>${title}</h1>
                   <div class="sub">${sub}</div>
                   <div class="stars">★★★★★</div>
-                  <div class="qr-wrap">
+                  <div class="qr-container">
                     <div class="vertical-tag-id">${item.tagCode}</div>
-                    <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
+                    <div class="qr-wrap">
+                      <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
+                    </div>
                   </div>
-                  <div class="tag-pill">${item.tagCode}</div>
                   <div>
                     <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
                   </div>
@@ -6293,36 +6250,32 @@ export default function MasterAdminPage() {
                 Tap your phone here (NFC) or scan with camera to share your review
               </div>
 
-              {/* Centerpiece QR Frame with Left-Corner Vertical Tag ID */}
-              <div className="relative inline-flex items-center justify-center p-3 pl-10 bg-slate-50 border-2 border-slate-200/90 rounded-2xl shadow-inner mb-2">
-                {/* Left corner vertical tag ID */}
+              {/* Centerpiece QR Frame with 8px Vertical Tag ID Outside the Box on Left */}
+              <div className="relative inline-flex items-center justify-center my-2">
+                {/* 8px Tag ID Outside QR Box on Left */}
                 <div
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] font-black text-slate-700 bg-slate-200/90 border border-slate-300 px-1 py-2.5 rounded-md uppercase tracking-wider select-none shadow-sm"
+                  className="absolute -left-6 top-1/2 -translate-y-1/2 font-mono text-[8px] font-bold text-slate-400 select-none tracking-widest uppercase pointer-events-none"
                   style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-                  title={`Hardware Tag ID: ${selectedTagForQr.tagCode}`}
+                  title={`Tag: ${selectedTagForQr.tagCode}`}
                 >
                   {selectedTagForQr.tagCode}
                 </div>
 
-                {loadingTagQr ? (
-                  <div className="w-44 h-44 flex flex-col items-center justify-center text-slate-400 text-xs">
-                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
-                    <span>Rendering QR...</span>
-                  </div>
-                ) : tagQrDataUrl ? (
-                  <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-44 h-44 block rounded-lg" />
-                ) : (
-                  <div className="w-44 h-44 flex items-center justify-center text-rose-500 text-xs">
-                    Failed to render QR
-                  </div>
-                )}
-              </div>
-
-              {/* Hardware Tag ID Chip */}
-              <div>
-                <span className="font-mono text-xs font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 inline-block tracking-wider">
-                  {selectedTagForQr.tagCode}
-                </span>
+                {/* Clean QR Box */}
+                <div className="p-3 bg-slate-50 border-2 border-slate-200/90 rounded-2xl shadow-inner">
+                  {loadingTagQr ? (
+                    <div className="w-44 h-44 flex flex-col items-center justify-center text-slate-400 text-xs">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                      <span>Rendering QR...</span>
+                    </div>
+                  ) : tagQrDataUrl ? (
+                    <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-44 h-44 block rounded-lg" />
+                  ) : (
+                    <div className="w-44 h-44 flex items-center justify-center text-rose-500 text-xs">
+                      Failed to render QR
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Tap badge */}
@@ -6516,22 +6469,21 @@ export default function MasterAdminPage() {
                         <div className="text-amber-400 text-sm tracking-widest my-0.5">★★★★★</div>
                       </div>
 
-                      <div className="my-2 p-2 pl-7 bg-slate-50 border border-slate-200 rounded-2xl relative inline-flex items-center justify-center">
-                        {/* Left corner vertical tag ID */}
+                      <div className="my-2 relative inline-flex items-center justify-center">
+                        {/* 8px Tag ID Outside QR box on Left */}
                         <div
-                          className="absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[8px] font-black text-slate-700 bg-slate-200/90 px-0.5 py-1.5 rounded border border-slate-300 uppercase tracking-wider select-none"
+                          className="absolute -left-5 top-1/2 -translate-y-1/2 font-mono text-[8px] font-bold text-slate-400 select-none tracking-wider uppercase pointer-events-none"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
                           title={`Tag: ${item.tagCode}`}
                         >
                           {item.tagCode}
                         </div>
-                        <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto rounded-lg" />
+                        <div className="p-2 bg-slate-50 border border-slate-200 rounded-2xl">
+                          <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto rounded-lg" />
+                        </div>
                       </div>
 
                       <div className="w-full">
-                        <div className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 inline-block mb-1">
-                          {item.tagCode}
-                        </div>
                         <div>
                           <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full inline-block">
                             📲 Tap NFC or Scan QR
