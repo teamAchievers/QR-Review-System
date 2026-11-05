@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import TagClaimClient from "./TagClaimClient";
 
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: {
     tagCode: string;
