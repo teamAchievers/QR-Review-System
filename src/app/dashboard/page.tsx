@@ -30,6 +30,9 @@ import {
   Truck,
   MapPin,
   X,
+  Radio,
+  Cpu,
+  UserCheck,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
 import { convertFromInr, formatCurrency, isCurrencyStrongerThanInr, CURRENCY_METADATA } from "@/lib/currency";
@@ -160,6 +163,15 @@ export default function BusinessDashboardPage() {
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
 
+  // Hardware Standee Tag Activation & Inventory State
+  const [activateTagModalOpen, setActivateTagModalOpen] = useState(false);
+  const [activateTagCode, setActivateTagCode] = useState("");
+  const [activateTagLabel, setActivateTagLabel] = useState("");
+  const [activateTagLoading, setActivateTagLoading] = useState(false);
+  const [activateTagError, setActivateTagError] = useState<string | null>(null);
+  const [activateTagSuccess, setActivateTagSuccess] = useState<string | null>(null);
+  const [linkedTags, setLinkedTags] = useState<any[]>([]);
+
   // Standee Order Coupon State
   const [standeeCouponInput, setStandeeCouponInput] = useState("");
   const [appliedStandeeCoupon, setAppliedStandeeCoupon] = useState<{
@@ -253,6 +265,54 @@ export default function BusinessDashboardPage() {
     }
   }, []);
 
+  const fetchLinkedTags = useCallback(async (targetBizId?: string) => {
+    try {
+      const bizParam = targetBizId ? `?businessId=${targetBizId}` : "";
+      const res = await fetch(`/api/dashboard/tags${bizParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLinkedTags(data.tags || []);
+      }
+    } catch (e) {
+      console.warn("Could not fetch linked tags", e);
+    }
+  }, []);
+
+  const handleActivateTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activateTagCode.trim()) {
+      setActivateTagError("Please enter the hardware tag serial code (e.g. TAG-D6D6EE)");
+      return;
+    }
+    setActivateTagLoading(true);
+    setActivateTagError(null);
+    setActivateTagSuccess(null);
+    try {
+      const res = await fetch("/api/dashboard/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tagCode: activateTagCode.trim().toUpperCase(),
+          label: activateTagLabel.trim() || undefined,
+          businessId: business?.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActivateTagError(data.error || "Failed to activate hardware tag");
+      } else {
+        setActivateTagSuccess(data.message || "Hardware standee activated successfully!");
+        setActivateTagCode("");
+        setActivateTagLabel("");
+        if (business?.id) fetchLinkedTags(business.id);
+      }
+    } catch (err: any) {
+      setActivateTagError(err.message || "Network error while activating tag");
+    } finally {
+      setActivateTagLoading(false);
+    }
+  };
+
   const fetchData = useCallback(async (selectedBizId?: string | unknown) => {
     try {
       const bizId = typeof selectedBizId === "string" ? selectedBizId : undefined;
@@ -268,6 +328,7 @@ export default function BusinessDashboardPage() {
       if (data.isTripadvisorAllowed !== undefined) setIsTripadvisorAllowed(data.isTripadvisorAllowed);
       if (data.business) {
         setBusiness(data.business);
+        fetchLinkedTags(data.business.id);
         setFormData({
           name: data.business.name || "",
           tagline: data.business.tagline || "",
@@ -1366,6 +1427,19 @@ export default function BusinessDashboardPage() {
                       <Package className="w-3.5 h-3.5 text-blue-200" />
                       <span>Order Standee</span>
                     </button>
+
+                    <button
+                      onClick={() => {
+                        setActivateTagError(null);
+                        setActivateTagSuccess(null);
+                        setActivateTagModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all active:scale-95 cursor-pointer"
+                      title="Activate pre-printed QR & NFC standee in field"
+                    >
+                      <Radio className="w-3.5 h-3.5 text-purple-200" />
+                      <span>Activate Tag</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1438,6 +1512,52 @@ export default function BusinessDashboardPage() {
                     Powered by <strong className="text-slate-600">{business?.poweredByText || "Unbox Studio"}</strong>
                   </div>
                 </div>
+
+                {linkedTags.length > 0 && (
+                  <div className="mt-6 pt-5 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-purple-600" />
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Active Hardware Standees &amp; Tags ({linkedTags.length})
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Synced with Master Admin</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {linkedTags.map((t) => (
+                        <div
+                          key={t.id}
+                          className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 font-mono font-bold text-slate-900">
+                              <Radio className="w-3 h-3 text-purple-600" />
+                              <span>{t.tagCode}</span>
+                              <span className="text-[10px] font-sans px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                                ACTIVE
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              {t.label ? `📍 ${t.label}` : "Counter Standee"}
+                            </div>
+                            {t.assignedBy && (
+                              <div className="text-[10px] text-purple-700 font-medium mt-1 flex items-center gap-1">
+                                <UserCheck className="w-3 h-3 text-purple-500" />
+                                <span>Configured by: {t.assignedBy}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] text-slate-400">Interactions</div>
+                            <div className="font-bold text-slate-800 text-sm">{t.scanCount || 0}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2686,6 +2806,129 @@ export default function BusinessDashboardPage() {
                   </div>
                 </form>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= ACTIVATE HARDWARE TAG MODAL ================= */}
+      {activateTagModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl p-6 relative">
+            <button
+              onClick={() => {
+                setActivateTagModalOpen(false);
+                setActivateTagError(null);
+                setActivateTagSuccess(null);
+              }}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                <Radio className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Activate Hardware Standee</h3>
+                <p className="text-xs text-slate-500">Bind pre-printed NFC + QR code to &quot;{business?.name}&quot;</p>
+              </div>
+            </div>
+
+            {activateTagSuccess ? (
+              <div className="space-y-4 text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Standee Activated!</h4>
+                  <p className="text-xs text-slate-600 mt-1">{activateTagSuccess}</p>
+                  <p className="text-[11px] text-purple-600 font-semibold mt-2">
+                    ✓ Confirmed &amp; recorded in Master Admin Panel
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivateTagModalOpen(false);
+                    setActivateTagSuccess(null);
+                  }}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleActivateTag} className="space-y-4 text-xs">
+                {activateTagError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{activateTagError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Tag Serial Code *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. TAG-D6D6EE"
+                    value={activateTagCode}
+                    onChange={(e) => setActivateTagCode(e.target.value.toUpperCase())}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Find the serial code printed at the bottom of the standee or on the back.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Placement / Counter Label (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Reception Desk, Cashier Counter, Table 4"
+                    value={activateTagLabel}
+                    onChange={(e) => setActivateTagLabel(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="p-3 bg-purple-50 border border-purple-200/60 rounded-xl flex items-start gap-2 text-[11px] text-purple-900">
+                  <UserCheck className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    Configuring as <strong className="font-bold">{currentUser?.name || "Agent"}</strong> ({currentUser?.role === "FIELD_AGENT" ? "Field Agent" : currentUser?.role === "AGENT" ? "Sales Agent" : currentUser?.role || "Staff"}). Your identity and timestamp will be registered in the Master Admin inventory audit.
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActivateTagModalOpen(false)}
+                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={activateTagLoading}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 disabled:opacity-50 cursor-pointer"
+                  >
+                    {activateTagLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Radio className="w-3.5 h-3.5" />
+                        <span>Confirm &amp; Bind Standee</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>

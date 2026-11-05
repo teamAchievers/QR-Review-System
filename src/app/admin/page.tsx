@@ -1043,7 +1043,7 @@ export default function MasterAdminPage() {
   // ==========================================
   const [tags, setTags] = useState<any[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
-  const [tagStats, setTagStats] = useState({ total: 0, unassigned: 0, assigned: 0, totalScans: 0 });
+  const [tagStats, setTagStats] = useState({ total: 0, unassigned: 0, assigned: 0, agentConfigured: 0, totalScans: 0 });
   const [tagBatches, setTagBatches] = useState<string[]>([]);
   const [selectedTagBatch, setSelectedTagBatch] = useState("ALL");
   const [selectedTagStatus, setSelectedTagStatus] = useState("ALL");
@@ -2826,7 +2826,7 @@ export default function MasterAdminPage() {
               { id: "COUPONS", label: "Coupon Codes", icon: Tag, count: coupons.length },
               { id: "OFFERS", label: "Promotions & Offers", icon: Sparkles, count: offers.length },
               { id: "PAYMENTS", label: "Payment Gateway", icon: CreditCard, count: paymentConfig.enabled ? (paymentConfig.mode === "LIVE" ? "LIVE" : "TEST") : "OFF" },
-              { id: "TAGS", label: "NFC & Bulk QR", icon: Cpu, count: `${tagStats.unassigned} In Stock` },
+              { id: "TAGS", label: "NFC & Bulk QR", icon: Cpu, count: `${tagStats.unassigned} In Stock${(tagStats as any).agentConfigured ? ` · ${(tagStats as any).agentConfigured} Agent` : ""}` },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = adminTab === tab.id;
@@ -2951,6 +2951,37 @@ export default function MasterAdminPage() {
           <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
+              {(tagStats as any).agentConfigured > 0 && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900 border border-purple-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0">
+                      <UserCheck className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-white">Agent Field Deployments</h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          {(tagStats as any).agentConfigured} Standee{(tagStats as any).agentConfigured === 1 ? "" : "s"} Configured
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Field Agents &amp; Staff have confirmed and bound physical QR/NFC standees directly to client venues.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAdminTab("TAGS");
+                      setSelectedTagStatus("AGENT_CONFIGURED");
+                      fetchTags("AGENT_CONFIGURED");
+                    }}
+                    className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer shrink-0 shadow-sm"
+                  >
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>View Agent Tags ({(tagStats as any).agentConfigured}) &rarr;</span>
+                  </button>
+                </div>
+              )}
               <h2 className="text-lg font-bold text-white">Client Subscriptions &amp; QR Profiles</h2>
               <p className="text-xs text-slate-400">Manage client tiers, renewals, suspension status, and credentials</p>
             </div>
@@ -4066,7 +4097,7 @@ export default function MasterAdminPage() {
         {adminTab === "TAGS" && (
           <div className="space-y-6">
             {/* KPI Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
                 <div className="flex items-center justify-between text-slate-400 mb-1">
                   <span className="text-xs font-medium">Total Hardware</span>
@@ -4092,6 +4123,15 @@ export default function MasterAdminPage() {
                 </div>
                 <div className="text-2xl font-black text-emerald-400">{tagStats.assigned}</div>
                 <p className="text-[11px] text-slate-500 mt-1">Linked to active businesses</p>
+              </div>
+
+              <div className="bg-slate-800/80 border border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-slate-800/80 rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center justify-between text-slate-400 mb-1">
+                  <span className="text-xs font-medium text-purple-300">Agent Configured</span>
+                  <UserCheck className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="text-2xl font-black text-purple-400">{(tagStats as any).agentConfigured || 0}</div>
+                <p className="text-[11px] text-purple-300/80 mt-1">Confirmed by field agents</p>
               </div>
 
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-3xl p-5 shadow-sm">
@@ -4159,6 +4199,7 @@ export default function MasterAdminPage() {
                     { id: "ALL", label: "All" },
                     { id: "UNASSIGNED", label: "In Stock" },
                     { id: "ASSIGNED", label: "Active" },
+                    { id: "AGENT_CONFIGURED", label: "🛠️ Agent Configured" },
                   ].map((s) => (
                     <button
                       key={s.id}
@@ -4349,10 +4390,20 @@ export default function MasterAdminPage() {
 
                             <td className="py-3 px-4">
                               {t.status === "ASSIGNED" ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                  <CheckCircle className="w-3 h-3" />
-                                  <span>ACTIVE IN FIELD</span>
-                                </span>
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>ACTIVE IN FIELD</span>
+                                  </span>
+                                  {t.assignedBy && (
+                                    <div>
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                        <UserCheck className="w-2.5 h-2.5" />
+                                        <span>BY AGENT</span>
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/10 text-amber-400 border border-amber-400/20">
                                   <Tag className="w-3 h-3" />
@@ -4385,6 +4436,19 @@ export default function MasterAdminPage() {
                                       </span>
                                     )}
                                   </div>
+                                  {t.assignedBy && (
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 border border-purple-500/40 font-semibold shadow-xs">
+                                        <UserCheck className="w-3 h-3 text-purple-400" />
+                                        <span>Configured by: <strong className="text-white">{t.assignedBy}</strong></span>
+                                      </span>
+                                      {t.assignedAt && (
+                                        <span className="text-slate-400 text-[10px]">
+                                          on {new Date(t.assignedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="text-slate-500 italic text-[11px]">

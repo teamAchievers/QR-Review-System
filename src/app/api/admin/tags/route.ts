@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim().toLowerCase();
 
     const where: any = {};
-    if (status && status !== "ALL") {
+    if (status === "AGENT_CONFIGURED") {
+      where.status = "ASSIGNED";
+      where.assignedBy = { not: null };
+    } else if (status && status !== "ALL") {
       where.status = status;
     }
     if (batchCode && batchCode !== "ALL") {
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const [tags, totalCount, unassignedCount, assignedCount, batches] = await Promise.all([
+    const [tags, totalCount, unassignedCount, assignedCount, agentConfiguredCount, batches] = await Promise.all([
       db.smartTag.findMany({
         where,
         include: {
@@ -41,12 +44,13 @@ export async function GET(req: NextRequest) {
             select: { id: true, name: true, slug: true, city: true, category: true },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ assignedAt: "desc" }, { createdAt: "desc" }],
         take: 300,
       }),
       db.smartTag.count(),
       db.smartTag.count({ where: { status: "UNASSIGNED" } }),
       db.smartTag.count({ where: { status: "ASSIGNED" } }),
+      db.smartTag.count({ where: { status: "ASSIGNED", assignedBy: { not: null } } }),
       db.smartTag.findMany({
         select: { batchCode: true },
         distinct: ["batchCode"],
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest) {
         total: totalCount,
         unassigned: unassignedCount,
         assigned: assignedCount,
+        agentConfigured: agentConfiguredCount,
         totalScans,
       },
       batches: batches.map((b) => b.batchCode),

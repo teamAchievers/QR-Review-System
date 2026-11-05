@@ -269,6 +269,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Agent / User identity formatting
+    const roleLabel = session.role === "FIELD_AGENT"
+      ? "Field Agent"
+      : session.role === "AGENT"
+      ? "Sales Agent"
+      : session.role === "SUPER_ADMIN"
+      ? "Super Admin"
+      : "Business Admin";
+    const agentIdentifier = session.name ? `${session.name} (${roleLabel})` : `${session.email} (${roleLabel})`;
+
     // Bind the hardware tag
     const updatedTag = await db.smartTag.update({
       where: { id: tag.id },
@@ -276,7 +286,7 @@ export async function POST(req: NextRequest) {
         businessId: business.id,
         status: "ASSIGNED",
         assignedAt: new Date(),
-        assignedBy: session.email || session.name || "Admin",
+        assignedBy: agentIdentifier,
         label: label ? label.trim() : tag.label,
       },
       include: {
