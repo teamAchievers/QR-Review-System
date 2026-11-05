@@ -33,6 +33,11 @@ import {
   Radio,
   Cpu,
   UserCheck,
+  Building2,
+  Plus,
+  Search,
+  Eye,
+  Users,
 } from "lucide-react";
 import { NICHE_CONFIGS, getBusinessQuickTags } from "@/lib/niches";
 import { convertFromInr, formatCurrency, isCurrencyStrongerThanInr, CURRENCY_METADATA } from "@/lib/currency";
@@ -90,9 +95,9 @@ interface FeedbackItem {
 export default function BusinessDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTabState] = useState<"qr" | "inbox" | "settings" | "billing">("qr");
+  const [activeTab, setActiveTabState] = useState<"clients" | "qr" | "inbox" | "settings" | "billing">("qr");
 
-  const setActiveTab = useCallback((tab: "qr" | "inbox" | "settings" | "billing") => {
+  const setActiveTab = useCallback((tab: "clients" | "qr" | "inbox" | "settings" | "billing") => {
     setActiveTabState(tab);
     if (typeof window !== "undefined") {
       try {
@@ -109,7 +114,7 @@ export default function BusinessDashboardPage() {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const urlTab = searchParams.get("tab")?.toLowerCase();
-      const validTabs = ["qr", "inbox", "settings", "billing"];
+      const validTabs = ["clients", "qr", "inbox", "settings", "billing"];
 
       if (urlTab && validTabs.includes(urlTab)) {
         setActiveTabState(urlTab as any);
@@ -162,6 +167,37 @@ export default function BusinessDashboardPage() {
   } | null>(null);
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Agent Onboarded Clients & Creation State
+  const [onboardedClients, setOnboardedClients] = useState<any[]>([]);
+  const [clientMetrics, setClientMetrics] = useState({ totalClients: 0, activeSubscriptions: 0, totalStandeesDeployed: 0 });
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [selectedClientForView, setSelectedClientForView] = useState<any | null>(null);
+  const [clientViewModalOpen, setClientViewModalOpen] = useState(false);
+  const [onboardModalOpen, setOnboardModalOpen] = useState(false);
+  const [onboardLoading, setOnboardLoading] = useState(false);
+  const [onboardError, setOnboardError] = useState<string | null>(null);
+  const [onboardSuccess, setOnboardSuccess] = useState<string | null>(null);
+  const [createdClientData, setCreatedClientData] = useState<any | null>(null);
+  const [onboardForm, setOnboardForm] = useState({
+    name: "",
+    slug: "",
+    category: "Restaurant & Café",
+    city: "",
+    phone: "",
+    email: "",
+    address: "",
+    googlePlaceId: "",
+    googleReviewUrl: "",
+    keywords: "friendly staff, excellent service, great quality, highly recommended",
+    planTier: "GROWTH",
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
+    tagCode: "",
+    tagLabel: "Main Counter",
+  });
 
   // Hardware Standee Tag Activation & Inventory State
   const [activateTagModalOpen, setActivateTagModalOpen] = useState(false);
@@ -265,6 +301,63 @@ export default function BusinessDashboardPage() {
     }
   }, []);
 
+  const isAgent = currentUser?.role === "AGENT" || currentUser?.role === "FIELD_AGENT";
+
+  const fetchOnboardedClients = useCallback(async () => {
+    setLoadingClients(true);
+    try {
+      const res = await fetch("/api/dashboard/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setOnboardedClients(data.clients || []);
+        if (data.metrics) setClientMetrics(data.metrics);
+      }
+    } catch (e) {
+      console.warn("Could not fetch onboarded clients", e);
+    } finally {
+      setLoadingClients(false);
+    }
+  }, []);
+
+  const handleOnboardCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onboardForm.name.trim()) {
+      setOnboardError("Please enter business name");
+      return;
+    }
+    if (!onboardForm.adminEmail.trim()) {
+      setOnboardError("Please enter customer owner email");
+      return;
+    }
+    if (!onboardForm.adminPassword || onboardForm.adminPassword.length < 6) {
+      setOnboardError("Password must be at least 6 characters");
+      return;
+    }
+    setOnboardLoading(true);
+    setOnboardError(null);
+    setOnboardSuccess(null);
+    try {
+      const res = await fetch("/api/dashboard/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(onboardForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOnboardError(data.error || "Failed to onboard customer");
+      } else {
+        setOnboardSuccess(data.message || "Customer onboarded successfully!");
+        setCreatedClientData(data.business);
+        fetchOnboardedClients();
+        fetchData(data.business?.id);
+      }
+    } catch (err: any) {
+      setOnboardError(err.message || "Network error while onboarding customer");
+    } finally {
+      setOnboardLoading(false);
+    }
+  };
+
   const fetchLinkedTags = useCallback(async (targetBizId?: string) => {
     try {
       const bizParam = targetBizId ? `?businessId=${targetBizId}` : "";
@@ -323,7 +416,12 @@ export default function BusinessDashboardPage() {
         return;
       }
       const data = await res.json();
-      if (data.user) setCurrentUser(data.user);
+      if (data.user) {
+        setCurrentUser(data.user);
+        if (data.user.role === "AGENT" || data.user.role === "FIELD_AGENT" || data.user.role === "SUPER_ADMIN") {
+          fetchOnboardedClients();
+        }
+      }
       if (data.allBusinesses) setAllBusinesses(data.allBusinesses);
       if (data.isTripadvisorAllowed !== undefined) setIsTripadvisorAllowed(data.isTripadvisorAllowed);
       if (data.business) {
@@ -1011,6 +1109,18 @@ export default function BusinessDashboardPage() {
   const isPaymentPending = subscriptionState.isPaymentPending;
   const publicReviewUrl = typeof window !== "undefined" ? `${window.location.origin}/r/${business.slug}` : `/r/${business.slug}`;
 
+    const filteredClients = onboardedClients.filter((c) => {
+    if (!clientSearch.trim()) return true;
+    const q = clientSearch.toLowerCase().trim();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.slug.toLowerCase().includes(q) ||
+      (c.city && c.city.toLowerCase().includes(q)) ||
+      (c.users?.[0]?.name && c.users[0].name.toLowerCase().includes(q)) ||
+      (c.users?.[0]?.email && c.users[0].email.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 relative">
       {/* Payment Success Toast */}
@@ -1247,7 +1357,25 @@ export default function BusinessDashboardPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 mb-6 gap-6">
+        <div className="flex border-b border-slate-200 mb-6 gap-6 overflow-x-auto no-scrollbar">
+          {(isAgent || currentUser?.role === "SUPER_ADMIN") && (
+            <button
+              onClick={() => setActiveTab("clients")}
+              className={`pb-3 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all shrink-0 ${
+                activeTab === "clients"
+                  ? "border-purple-600 text-purple-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Users className="w-4 h-4 text-purple-600" />
+              <span>My Onboarded Clients</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === "clients" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600"
+              }`}>
+                {onboardedClients.length}
+              </span>
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("qr")}
             className={`pb-3 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all ${
@@ -1301,6 +1429,242 @@ export default function BusinessDashboardPage() {
             <span>Subscription &amp; Plan</span>
           </button>
         </div>
+
+        {/* ================= TAB 0: AGENT ONBOARDED CLIENTS ================= */}
+        {activeTab === "clients" && (
+          <div className="space-y-6">
+            {/* Header & Quick Action */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">My Onboarded Clients</h2>
+                    <p className="text-xs text-slate-500">
+                      Businesses registered and provisioned by you. View customer details and live hardware status (Read-Only).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative min-w-[220px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by business, city, or owner..."
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    className="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <button
+                  onClick={() => {
+                    setOnboardError(null);
+                    setOnboardSuccess(null);
+                    setCreatedClientData(null);
+                    setOnboardModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Onboard New Customer</span>
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs font-medium">Onboarded Clients</span>
+                  <Building2 className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="text-2xl font-black text-slate-900">{clientMetrics.totalClients || onboardedClients.length}</div>
+                <p className="text-[11px] text-slate-400 mt-1">Total client venues in portfolio</p>
+              </div>
+
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs font-medium">Active Subscriptions</span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-black text-emerald-600">{clientMetrics.activeSubscriptions || 0}</div>
+                <p className="text-[11px] text-slate-400 mt-1">Operational review funnels</p>
+              </div>
+
+              <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs font-medium">Hardware Deployed</span>
+                  <Radio className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="text-2xl font-black text-blue-600">{clientMetrics.totalStandeesDeployed || 0}</div>
+                <p className="text-[11px] text-slate-400 mt-1">Physical QR &amp; NFC standees</p>
+              </div>
+            </div>
+
+            {/* Clients Table */}
+            <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
+              {loadingClients ? (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <span>Loading your onboarded clients...</span>
+                </div>
+              ) : filteredClients.length === 0 ? (
+                <div className="p-12 text-center text-slate-500">
+                  <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                  <h4 className="text-sm font-bold text-slate-800 mb-1">No Onboarded Clients Found</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+                    {clientSearch ? "No clients match your search filter." : "You have not onboarded any clients yet. Click below to register your first business."}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setOnboardError(null);
+                      setOnboardSuccess(null);
+                      setCreatedClientData(null);
+                      setOnboardModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    + Onboard First Customer
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="py-3.5 px-4">Business &amp; Review Funnel</th>
+                        <th className="py-3.5 px-4">Owner / Contact</th>
+                        <th className="py-3.5 px-4">Category &amp; City</th>
+                        <th className="py-3.5 px-4">Plan &amp; Status</th>
+                        <th className="py-3.5 px-4">Hardware Standees</th>
+                        <th className="py-3.5 px-4">Onboarded</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredClients.map((client) => {
+                        const owner = client.users?.[0];
+                        const origin = typeof window !== "undefined" ? window.location.origin : "";
+                        const reviewUrl = `${origin}/r/${client.slug}`;
+                        return (
+                          <tr key={client.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-slate-900 text-sm">{client.name}</div>
+                              <a
+                                href={reviewUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 mt-0.5"
+                                title="Open customer review funnel"
+                              >
+                                <span>/r/{client.slug}</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="font-semibold text-slate-800">{owner?.name || "Client Owner"}</div>
+                              <div className="text-[11px] text-slate-500">{owner?.email || client.email || "—"}</div>
+                              {client.phone && (
+                                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                  <Phone className="w-2.5 h-2.5" />
+                                  <span>{client.phone}</span>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                {client.category || "General"}
+                              </span>
+                              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                <span>{client.city || "—"}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-slate-800">{client.planTier || "GROWTH"}</span>
+                              <div className="mt-1">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  client.subscriptionStatus === "ACTIVE"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                  <span>{client.subscriptionStatus || "ACTIVE"}</span>
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {client.smartTags && client.smartTags.length > 0 ? (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                    <Radio className="w-3 h-3 text-purple-600" />
+                                    <span>{client.smartTags.length} Standee{client.smartTags.length === 1 ? "" : "s"}</span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-slate-500">
+                                    {client.smartTags[0]?.tagCode}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic text-[11px]">No standee linked</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-[11px] text-slate-500">
+                              {new Date(client.createdAt).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedClientForView(client);
+                                    setClientViewModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="View Customer Details (Read-Only)"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>View Details</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    fetchData(client.id);
+                                    setActiveTab("qr");
+                                  }}
+                                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Switch Live Standee & Funnel Studio"
+                                >
+                                  <QrCode className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>Standee</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ================= TAB 1: QR CODE & STAND STUDIO ================= */}
         {activeTab === "qr" && (
@@ -1685,11 +2049,33 @@ export default function BusinessDashboardPage() {
         {activeTab === "settings" && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs max-w-3xl">
             <div className="pb-4 border-b border-slate-200 mb-6">
-              <h3 className="font-bold text-base text-slate-900">SEO Keywords, Logo &amp; Google Review Configuration</h3>
-              <p className="text-xs text-slate-500">
-                Configure your destination Google Review URL, center logo, and target SEO keywords for positive reviews.
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">SEO Keywords, Logo &amp; Google Review Configuration</h3>
+                  <p className="text-xs text-slate-500">
+                    Configure your destination Google Review URL, center logo, and target SEO keywords for positive reviews.
+                  </p>
+                </div>
+                {isAgent && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-600" />
+                    <span>READ-ONLY (CANNOT EDIT)</span>
+                  </span>
+                )}
+              </div>
             </div>
+
+            {isAgent && (
+              <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
+                <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold">Agent Read-Only Access</h4>
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    As an Agent, you can view this customer&apos;s details, configuration, and SEO keywords below, but you cannot edit or overwrite them. To request modifications, contact Super Admin.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {settingsSaved && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-2 text-xs font-semibold">
@@ -1922,9 +2308,15 @@ export default function BusinessDashboardPage() {
               </div>
 
               <div className="pt-4 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={savingSettings}
+                {isAgent ? (
+                  <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-bold text-xs">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Save Disabled for Agents (Read-Only)</span>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={savingSettings}
                   className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2 active:scale-95"
                 >
                   {savingSettings ? (
@@ -1936,6 +2328,7 @@ export default function BusinessDashboardPage() {
                     </>
                   )}
                 </button>
+                )}
               </div>
             </form>
           </div>
@@ -2806,6 +3199,524 @@ export default function BusinessDashboardPage() {
                   </div>
                 </form>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= CUSTOMER DETAILS (READ-ONLY) MODAL ================= */}
+      {clientViewModalOpen && selectedClientForView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setClientViewModalOpen(false);
+                setSelectedClientForView(null);
+              }}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-200">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">{selectedClientForView.name}</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    READ-ONLY (CANNOT EDIT)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Customer Profile &amp; Configuration Overview (Edits Restricted for Agents)
+                </p>
+              </div>
+            </div>
+
+            {/* Read-Only Notice */}
+            <div className="mb-5 p-3 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-900 flex items-start gap-2.5 text-xs">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold">Agent View-Only Mode:</strong> You can review this customer&apos;s details, owner credentials, and hardware status below. Modifying settings requires Super Admin approval.
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Business Overview Section */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
+                <h4 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                  <Building2 className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Business Overview</span>
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Category</span>
+                    <strong className="text-slate-800">{selectedClientForView.category || "General"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">City</span>
+                    <strong className="text-slate-800">{selectedClientForView.city || "—"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Plan Tier</span>
+                    <strong className="text-purple-700">{selectedClientForView.planTier || "GROWTH"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Phone</span>
+                    <strong className="text-slate-800">{selectedClientForView.phone || "—"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Email</span>
+                    <strong className="text-slate-800">{selectedClientForView.email || "—"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Subscription Status</span>
+                    <strong className="text-emerald-700">{selectedClientForView.subscriptionStatus || "ACTIVE"}</strong>
+                  </div>
+                </div>
+                {selectedClientForView.address && (
+                  <div className="mt-3 pt-2 border-t border-slate-200">
+                    <span className="text-[10px] text-slate-400 block">Address</span>
+                    <p className="text-slate-700">{selectedClientForView.address}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Owner / Admin Account Section */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
+                <h4 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                  <Users className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Customer Dashboard Login</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Owner Full Name</span>
+                    <strong className="text-slate-800">{selectedClientForView.users?.[0]?.name || "Business Admin"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Login Email</span>
+                    <strong className="text-slate-800 font-mono">{selectedClientForView.users?.[0]?.email || selectedClientForView.email || "—"}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review Links & Destination Section */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
+                <h4 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Review Funnel &amp; Google Links</span>
+                </h4>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Public Review Funnel</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <code className="p-1.5 bg-white border border-slate-200 rounded-lg text-blue-700 font-mono text-[11px] flex-1 truncate">
+                        {typeof window !== "undefined" ? window.location.origin : ""}/r/{selectedClientForView.slug}
+                      </code>
+                      <a
+                        href={`/r/${selectedClientForView.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Test</span>
+                      </a>
+                    </div>
+                  </div>
+                  {selectedClientForView.googleReviewUrl && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Google Review URL</span>
+                      <p className="text-[11px] text-slate-700 font-mono truncate mt-0.5">
+                        {selectedClientForView.googleReviewUrl}
+                      </p>
+                    </div>
+                  )}
+                  {selectedClientForView.keywords && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Target SEO Keywords</span>
+                      <p className="text-[11px] text-slate-700 mt-0.5 italic">
+                        &quot;{selectedClientForView.keywords}&quot;
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Hardware Standees Linked */}
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80">
+                <h4 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                  <Radio className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Linked Hardware Standees ({selectedClientForView.smartTags?.length || 0})</span>
+                </h4>
+                {selectedClientForView.smartTags && selectedClientForView.smartTags.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedClientForView.smartTags.map((tag: any) => (
+                      <div key={tag.id} className="p-2.5 bg-white border border-slate-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <div className="font-mono font-bold text-purple-700">{tag.tagCode}</div>
+                          <div className="text-[10px] text-slate-500">{tag.label || "Standee"}</div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                            {tag.scanCount || 0} taps
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 italic text-[11px]">No physical standees linked yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                <span>Edits locked for Agent role</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setClientViewModalOpen(false);
+                  setSelectedClientForView(null);
+                }}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ONBOARD NEW CUSTOMER / BUSINESS MODAL ================= */}
+      {onboardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setOnboardModalOpen(false);
+                setOnboardError(null);
+                setOnboardSuccess(null);
+                setCreatedClientData(null);
+              }}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-200">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-500/20">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Onboard New Customer / Business</h3>
+                <p className="text-xs text-slate-500">
+                  Register a client venue, create their owner account, and link their QR standee
+                </p>
+              </div>
+            </div>
+
+            {onboardSuccess ? (
+              <div className="space-y-4 text-center py-6">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-slate-900">Customer Successfully Onboarded!</h4>
+                  <p className="text-xs text-slate-600 mt-1">{onboardSuccess}</p>
+                </div>
+                {createdClientData && (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left text-xs max-w-md mx-auto">
+                    <div className="font-bold text-slate-800 text-sm mb-1">{createdClientData.name}</div>
+                    <div className="text-slate-500 text-[11px] mb-2">Review Funnel: <code className="text-blue-600">/r/{createdClientData.slug}</code></div>
+                    <div className="text-[11px] text-purple-700 bg-purple-50 p-2 rounded-xl border border-purple-200 font-medium">
+                      ✓ Registered under your agent portfolio. The customer can now log in to manage reviews.
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnboardModalOpen(false);
+                      setOnboardSuccess(null);
+                      setCreatedClientData(null);
+                    }}
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                  {createdClientData && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnboardModalOpen(false);
+                        setOnboardSuccess(null);
+                        fetchData(createdClientData.id);
+                        setActiveTab("qr");
+                      }}
+                      className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                    >
+                      View Live Standee &rarr;
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleOnboardCustomer} className="space-y-4 text-xs">
+                {onboardError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{onboardError}</span>
+                  </div>
+                )}
+
+                {/* Section 1: Business Details */}
+                <div className="space-y-3">
+                  <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                    <Building2 className="w-3.5 h-3.5 text-purple-600" />
+                    <span>1. Business Details</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Business Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Bella Italia Café"
+                        value={onboardForm.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const autoSlug = val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                          setOnboardForm((prev) => ({
+                            ...prev,
+                            name: val,
+                            slug: prev.slug === "" || prev.slug === autoSlug.slice(0, -1) ? autoSlug : prev.slug,
+                          }));
+                        }}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Review URL Slug (/r/[slug])
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="bella-italia-cafe"
+                        value={onboardForm.slug}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Category / Industry
+                      </label>
+                      <select
+                        value={onboardForm.category}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, category: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                      >
+                        <option value="Restaurant & Café">Restaurant &amp; Café</option>
+                        <option value="Salon & Spa">Salon &amp; Spa</option>
+                        <option value="Dental & Healthcare">Dental &amp; Healthcare</option>
+                        <option value="Retail & Shopping">Retail &amp; Shopping</option>
+                        <option value="Gym & Fitness">Gym &amp; Fitness</option>
+                        <option value="Hotel & Hospitality">Hotel &amp; Hospitality</option>
+                        <option value="Automotive & Service">Automotive &amp; Service</option>
+                        <option value="Other Business">Other Business</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Mumbai"
+                        value={onboardForm.city}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, city: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={onboardForm.phone}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, phone: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Plan Tier
+                      </label>
+                      <select
+                        value={onboardForm.planTier}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, planTier: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                      >
+                        <option value="GROWTH">Growth (Most Popular)</option>
+                        <option value="STARTER">Starter Launch</option>
+                        <option value="PRO">Pro Enterprise</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Owner Login */}
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                    <Users className="w-3.5 h-3.5 text-blue-600" />
+                    <span>2. Customer Dashboard Credentials</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Owner Full Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rahul Sharma"
+                        value={onboardForm.adminName}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, adminName: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Owner Login Email *
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="owner@business.com"
+                        value={onboardForm.adminEmail}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, adminEmail: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Temporary Password * (min 6 characters)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Set temporary password for owner"
+                        value={onboardForm.adminPassword}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, adminPassword: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Google Review Link */}
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                    <Star className="w-3.5 h-3.5 text-amber-500" />
+                    <span>3. Google Review Destination</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Google Review Direct URL or Place ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://g.page/r/.../review or ChIJ..."
+                      value={onboardForm.googleReviewUrl}
+                      onChange={(e) => setOnboardForm({ ...onboardForm, googleReviewUrl: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Can be updated later by Super Admin if customer does not have their Google link ready.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Section 4: Initial Hardware Standee */}
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                    <Radio className="w-3.5 h-3.5 text-purple-600" />
+                    <span>4. Bind Physical Standee (Optional)</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Standee Tag Code (Serial)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. TAG-D6D6EE"
+                        value={onboardForm.tagCode}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, tagCode: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Placement Label
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Billing Counter"
+                        value={onboardForm.tagLabel}
+                        onChange={(e) => setOnboardForm({ ...onboardForm, tagLabel: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setOnboardModalOpen(false)}
+                    className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={onboardLoading}
+                    className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 disabled:opacity-50 cursor-pointer"
+                  >
+                    {onboardLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Confirm &amp; Onboard Customer</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>

@@ -38,9 +38,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (session.role === "AGENT" || session.role === "FIELD_AGENT") {
+      return NextResponse.json(
+        { error: "Agents have read-only permissions and cannot modify business settings. Contact Super Admin to request updates." },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const requestedBizId = searchParams.get("businessId");
-    const isElevated = session.role === "SUPER_ADMIN" || session.role === "AGENT" || session.role === "FIELD_AGENT";
+    const isElevated = session.role === "SUPER_ADMIN";
 
     let businessId = session.businessId;
     if (isElevated && requestedBizId) {
