@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
 
     const targetUrl = `${baseUrl}/t/${tagCode.toUpperCase().trim()}`;
 
-    // Generate high resolution QR code data URL
+    // Generate high resolution QR code data URL (1024px for large standee formats)
     const qrDataUrl = await QRCode.toDataURL(targetUrl, {
-      width: 512,
+      width: 1024,
       margin: 2,
       color: {
         dark: "#0f172a",

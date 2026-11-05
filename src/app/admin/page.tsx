@@ -1391,8 +1391,8 @@ export default function MasterAdminPage() {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             }
             .standee-card {
-              max-width: 380px; width: 100%; border: 2.5px solid #cbd5e1; border-radius: 32px;
-              padding: 40px 28px 32px; text-align: center; position: relative; background: #ffffff; overflow: hidden;
+              max-width: 440px; width: 100%; border: 2.5px solid #cbd5e1; border-radius: 32px;
+              padding: 32px 24px 28px; text-align: center; position: relative; background: #ffffff; overflow: hidden;
               box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             }
             .accent-bar {
@@ -1420,15 +1420,15 @@ export default function MasterAdminPage() {
               margin-bottom: 16px;
             }
             .vertical-tag-id {
-              position: absolute; left: -20px; top: 50%; transform: translateY(-50%) rotate(180deg);
+              position: absolute; left: -24px; top: 50%; transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl; font-family: monospace; font-size: 8px; font-weight: 700;
               letter-spacing: 0.14em; color: #64748b; text-transform: uppercase; user-select: none;
             }
             .qr-wrap {
-              display: inline-block; padding: 12px; background: #ffffff; border: 2.5px solid #e2e8f0;
-              border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+              display: inline-block; padding: 14px; background: #ffffff; border: 2.5px solid #e2e8f0;
+              border-radius: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.05);
             }
-            .qr-img { width: 200px; height: 200px; display: block; border-radius: 12px; }
+            .qr-img { width: 285px; height: 285px; display: block; border-radius: 18px; }
             .nfc-badge {
               font-size: 11px; font-weight: 700; color: #0369a1; background: #e0f2fe;
               padding: 6px 16px; border-radius: 9999px; display: inline-block; margin-bottom: 6px;
@@ -1523,28 +1523,28 @@ export default function MasterAdminPage() {
 
     // Five Stars
     ctx.fillStyle = "#f59e0b";
-    ctx.font = "bold 70px -apple-system, sans-serif";
-    ctx.fillText("★ ★ ★ ★ ★", 600, 365);
+    ctx.font = "bold 64px -apple-system, sans-serif";
+    ctx.fillText("★ ★ ★ ★ ★", 600, 350);
 
     // "How Was Your Experience?"
     ctx.fillStyle = "#1e293b";
-    ctx.font = "bold 44px -apple-system, sans-serif";
-    ctx.fillText("How Was Your Experience?", 600, 440);
+    ctx.font = "bold 42px -apple-system, sans-serif";
+    ctx.fillText("How Was Your Experience?", 600, 415);
 
     // Instructions
     ctx.fillStyle = "#64748b";
-    ctx.font = "32px -apple-system, sans-serif";
-    ctx.fillText("Tap phone here (NFC) or scan with camera", 600, 495);
+    ctx.font = "30px -apple-system, sans-serif";
+    ctx.fillText("Tap phone here (NFC) or scan with camera", 600, 465);
 
-    // Load QR Box
+    // Load QR Box - Enlarged to 840x840 px covering ~48% of design
     ctx.fillStyle = "#ffffff";
     ctx.strokeStyle = "#94a3b8";
     ctx.lineWidth = 8;
     ctx.beginPath();
     if (typeof (ctx as any).roundRect === "function") {
-      (ctx as any).roundRect(260, 560, 680, 680, [40]);
+      (ctx as any).roundRect(180, 500, 840, 840, [44]);
     } else {
-      ctx.rect(260, 560, 680, 680);
+      ctx.rect(180, 500, 840, 840);
     }
     ctx.fill();
     ctx.stroke();
@@ -1552,12 +1552,12 @@ export default function MasterAdminPage() {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Draw QR image centered in box
-      ctx.drawImage(img, 300, 600, 600, 600);
+      // Draw QR image enlarged to 780x780 px (45% of total 1750px canvas)
+      ctx.drawImage(img, 210, 530, 780, 780);
 
       // Vertical Tag ID OUTSIDE left side of QR Box (8px equivalent)
       ctx.save();
-      ctx.translate(225, 900);
+      ctx.translate(145, 920);
       ctx.rotate(-Math.PI / 2);
       ctx.fillStyle = "#64748b";
       ctx.font = "bold 20px monospace";
@@ -1570,27 +1570,27 @@ export default function MasterAdminPage() {
       ctx.fillStyle = "#e0f2fe";
       ctx.beginPath();
       if (typeof (ctx as any).roundRect === "function") {
-        (ctx as any).roundRect(310, 1390, 580, 75, [38]);
+        (ctx as any).roundRect(310, 1385, 580, 75, [38]);
       } else {
-        ctx.rect(310, 1390, 580, 75);
+        ctx.rect(310, 1385, 580, 75);
       }
       ctx.fill();
 
       ctx.fillStyle = "#0369a1";
       ctx.font = "bold 32px -apple-system, sans-serif";
-      ctx.fillText("📲 Instant NFC Tap & QR Scan", 600, 1440);
+      ctx.fillText("📲 Instant NFC Tap & QR Scan", 600, 1435);
 
       // Brand Footer
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(150, 1550);
-      ctx.lineTo(1050, 1550);
+      ctx.moveTo(150, 1530);
+      ctx.lineTo(1050, 1530);
       ctx.stroke();
 
       ctx.fillStyle = "#94a3b8";
       ctx.font = "34px -apple-system, sans-serif";
-      ctx.fillText(`Powered by ${poweredBy}`, 600, 1630);
+      ctx.fillText(`Powered by ${poweredBy}`, 600, 1610);
 
       const link = document.createElement("a");
       link.download = `Standee_${tagItem.tagCode}.png`;
@@ -1629,33 +1629,33 @@ export default function MasterAdminPage() {
 
     let gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
     let cardHeight = "136mm";
-    let qrSize = "125px";
+    let qrSize = "62mm";
     let titleSize = "15px";
     let subDisplay = "block";
     let cardBorder = "2px dashed #94a3b8";
 
     if (isA5 || isStickerA5) {
-      // 2 per sheet in A4 Landscape (136mm x 188mm each)
+      // 2 per sheet in A4 Landscape (136mm x 188mm each) - QR covers 44% of card height
       gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
       cardHeight = "188mm";
-      qrSize = "170px";
-      titleSize = "22px";
+      qrSize = "82mm";
+      titleSize = "20px";
       subDisplay = "block";
       cardBorder = isStickerA5 ? "2px dashed #059669" : "2px dashed #94a3b8";
     } else if (isTent) {
-      // 2 Table-tents side-by-side in A4 Landscape
+      // 2 Table-tents side-by-side in A4 Landscape - QR covers 43% of card height
       gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
       cardHeight = "188mm";
-      qrSize = "155px";
+      qrSize = "80mm";
       titleSize = "18px";
       subDisplay = "block";
       cardBorder = "2px dashed #2563eb";
     } else if (isStickerA6) {
-      // 4 A6 stickers in A4 portrait (2 columns x 2 rows)
+      // 4 A6 stickers in A4 portrait (2 columns x 2 rows) - QR covers 46% of card height
       gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
       cardHeight = "136mm";
-      qrSize = "125px";
-      titleSize = "16px";
+      qrSize = "62mm";
+      titleSize = "15px";
       subDisplay = "block";
       cardBorder = "2px dashed #059669";
     }
@@ -1768,7 +1768,7 @@ export default function MasterAdminPage() {
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isLandscape ? "-18px" : "-16px"};
+              left: ${isLandscape ? "-22px" : "-18px"};
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
@@ -1782,10 +1782,10 @@ export default function MasterAdminPage() {
             }
             .qr-wrap {
               display: inline-block;
-              padding: ${isLandscape ? "10px" : "6px"};
+              padding: ${isLandscape ? "8px" : "5px"};
               background: #ffffff;
               border: 2px solid #e2e8f0;
-              border-radius: ${isLandscape ? "18px" : "14px"};
+              border-radius: ${isLandscape ? "20px" : "14px"};
             }
             .qr-img {
               width: ${qrSize};
@@ -6579,17 +6579,17 @@ export default function MasterAdminPage() {
                   {selectedTagForQr.tagCode}
                 </div>
 
-                {/* Clean QR Box */}
-                <div className="p-3 bg-slate-50 border-2 border-slate-200/90 rounded-2xl shadow-inner">
+                {/* Clean QR Box Covering 45% of Design */}
+                <div className="p-3 bg-slate-50 border-2 border-slate-200/90 rounded-3xl shadow-inner">
                   {loadingTagQr ? (
-                    <div className="w-44 h-44 flex flex-col items-center justify-center text-slate-400 text-xs">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
+                    <div className="w-64 h-64 sm:w-72 sm:h-72 flex flex-col items-center justify-center text-slate-400 text-xs">
+                      <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
                       <span>Rendering QR...</span>
                     </div>
                   ) : tagQrDataUrl ? (
-                    <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-44 h-44 block rounded-lg" />
+                    <img src={tagQrDataUrl} alt={selectedTagForQr.tagCode} className="w-64 h-64 sm:w-72 sm:h-72 block rounded-2xl" />
                   ) : (
-                    <div className="w-44 h-44 flex items-center justify-center text-rose-500 text-xs">
+                    <div className="w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center text-rose-500 text-xs">
                       Failed to render QR
                     </div>
                   )}
@@ -6819,8 +6819,8 @@ export default function MasterAdminPage() {
                         >
                           {item.tagCode}
                         </div>
-                        <div className="p-2 bg-slate-50 border border-slate-200 rounded-2xl">
-                          <img src={item.qrDataUrl} alt={item.tagCode} className="w-32 h-32 block mx-auto rounded-lg" />
+                        <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-3xl shadow-inner">
+                          <img src={item.qrDataUrl} alt={item.tagCode} className="w-44 h-44 sm:w-52 sm:h-52 block mx-auto rounded-2xl" />
                         </div>
                       </div>
 
