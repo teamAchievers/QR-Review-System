@@ -969,7 +969,7 @@ export default function MasterAdminPage() {
     business?: any;
     label?: string | null;
   }[]>([]);
-  const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A5" | "A6" | "TENT" | "STICKER">("A6");
+  const [batchStandeeLayout, setBatchStandeeLayout] = useState<"A5" | "A6" | "TENT" | "STICKER_A5" | "STICKER_A6">("A6");
   const [preparingSheet, setPreparingSheet] = useState(false);
 
   const fetchTags = async (statusParam?: string, batchParam?: string, searchParam?: string) => {
@@ -1585,7 +1585,8 @@ export default function MasterAdminPage() {
 
     const isA5 = batchStandeeLayout === "A5";
     const isTent = batchStandeeLayout === "TENT";
-    const isSticker = batchStandeeLayout === "STICKER";
+    const isStickerA5 = batchStandeeLayout === "STICKER_A5";
+    const isStickerA6 = batchStandeeLayout === "STICKER_A6" || (batchStandeeLayout as string) === "STICKER";
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -1599,9 +1600,11 @@ export default function MasterAdminPage() {
     const doc = iframe.contentWindow?.document;
     if (!doc) return;
 
-    // Layout-specific dimensions, orientation, and even-number chunking
-    const perPage = isA5 ? 2 : isTent ? 2 : isSticker ? 8 : 4;
-    const pageSize = (isA5 || isTent) ? "A4 landscape" : "A4 portrait";
+    // Both A5 Standee, Table-Tent, and A5 Sticker fit 2 per page in A4 Landscape!
+    // A6 Standee and A6 Sticker fit 4 per page in A4 Portrait!
+    const isLandscape = isA5 || isTent || isStickerA5;
+    const perPage = isLandscape ? 2 : 4;
+    const pageSize = isLandscape ? "A4 landscape" : "A4 portrait";
 
     let gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
     let cardHeight = "136mm";
@@ -1610,14 +1613,14 @@ export default function MasterAdminPage() {
     let subDisplay = "block";
     let cardBorder = "2px dashed #94a3b8";
 
-    if (isA5) {
-      // 2 A5 portrait standees side-by-side in A4 Landscape
+    if (isA5 || isStickerA5) {
+      // 2 per sheet in A4 Landscape (136mm x 188mm each)
       gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
       cardHeight = "188mm";
       qrSize = "170px";
       titleSize = "22px";
       subDisplay = "block";
-      cardBorder = "2px dashed #94a3b8";
+      cardBorder = isStickerA5 ? "2px dashed #059669" : "2px dashed #94a3b8";
     } else if (isTent) {
       // 2 Table-tents side-by-side in A4 Landscape
       gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
@@ -1626,14 +1629,14 @@ export default function MasterAdminPage() {
       titleSize = "18px";
       subDisplay = "block";
       cardBorder = "2px dashed #2563eb";
-    } else if (isSticker) {
-      // 8 stickers in A4 portrait (4 columns x 2 rows)
-      gridCss = "grid-template-columns: repeat(4, 1fr); gap: 4mm;";
-      cardHeight = "68mm";
-      qrSize = "80px";
-      titleSize = "11px";
-      subDisplay = "none";
-      cardBorder = "1.5px dashed #94a3b8";
+    } else if (isStickerA6) {
+      // 4 A6 stickers in A4 portrait (2 columns x 2 rows)
+      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
+      cardHeight = "136mm";
+      qrSize = "125px";
+      titleSize = "16px";
+      subDisplay = "block";
+      cardBorder = "2px dashed #059669";
     }
 
     // Chunk into even-number pages so every page has exact even prints without spillover
@@ -1647,11 +1650,17 @@ export default function MasterAdminPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Print Standees - ${isA5 ? "A5 (2 per sheet Landscape)" : isTent ? "Foldable Table Tents (2 per sheet Landscape)" : isSticker ? "Stickers (8 per sheet)" : "A6 Acrylic (4 per sheet)"}</title>
+          <title>Print - ${
+            isA5 ? "A5 Standees (2 per sheet Landscape)" :
+            isStickerA5 ? "A5 Stickers (2 per sheet Landscape)" :
+            isStickerA6 ? "A6 Stickers (4 per sheet Portrait)" :
+            isTent ? "Foldable Table Tents (2 per sheet Landscape)" :
+            "A6 Acrylic Standees (4 per sheet Portrait)"
+          }</title>
           <style>
             @page {
               size: ${pageSize};
-              margin: ${isSticker ? "6mm" : "8mm"};
+              margin: 8mm;
             }
             * {
               box-sizing: border-box;
@@ -1675,8 +1684,8 @@ export default function MasterAdminPage() {
             }
             .standee-card {
               border: ${cardBorder};
-              border-radius: ${isSticker ? "12px" : "20px"};
-              padding: ${isA5 ? "28px 24px" : isTent ? "22px 18px" : isSticker ? "8px 6px" : "16px 12px 14px"};
+              border-radius: ${isStickerA5 ? "28px" : isStickerA6 ? "20px" : "18px"};
+              padding: ${isLandscape ? "28px 24px" : "16px 14px"};
               text-align: center;
               position: relative;
               background: #ffffff;
@@ -1690,9 +1699,13 @@ export default function MasterAdminPage() {
             }
             .accent-bar {
               position: absolute; top: 0; left: 0; right: 0;
-              height: ${isA5 ? "10px" : isSticker ? "5px" : "7px"};
-              border-radius: ${isSticker ? "12px 12px 0 0" : "20px 20px 0 0"};
-              background: linear-gradient(to right, #2563eb, #4f46e5, #06b6d4);
+              height: ${isLandscape ? "10px" : "7px"};
+              border-radius: ${isStickerA5 ? "28px 28px 0 0" : "18px 18px 0 0"};
+              background: ${
+                isStickerA5 || isStickerA6
+                  ? "linear-gradient(to right, #059669, #10b981, #06b6d4)"
+                  : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4)"
+              };
             }
             .tent-badge {
               display: ${isTent ? "inline-block" : "none"};
@@ -1700,11 +1713,17 @@ export default function MasterAdminPage() {
               letter-spacing: 0.12em; padding: 2px 10px; border-radius: 4px; border: 1px dashed #93c5fd;
               margin-bottom: 3px; text-transform: uppercase;
             }
+            .sticker-badge {
+              display: ${isStickerA5 || isStickerA6 ? "inline-block" : "none"};
+              background: #ecfdf5; color: #059669; font-weight: 800; font-size: ${isStickerA5 ? "10px" : "8px"};
+              letter-spacing: 0.12em; padding: 2px 10px; border-radius: 9999px; border: 1px solid #a7f3d0;
+              margin-bottom: 2px; text-transform: uppercase;
+            }
             .stars {
               color: #f59e0b;
-              font-size: ${isA5 ? "26px" : isTent ? "22px" : isSticker ? "12px" : "18px"};
-              letter-spacing: ${isSticker ? "2px" : "4px"};
-              margin: ${isSticker ? "1px 0" : "3px 0"};
+              font-size: ${isLandscape ? "26px" : "18px"};
+              letter-spacing: 4px;
+              margin: 3px 0;
             }
             h1 {
               font-size: ${titleSize};
@@ -1712,24 +1731,23 @@ export default function MasterAdminPage() {
               color: #0f172a;
               margin: 2px 0;
               line-height: 1.15;
-              ${isSticker ? "max-height: 22px; overflow: hidden;" : ""}
             }
             .sub {
               display: ${subDisplay};
-              font-size: ${isA5 ? "13px" : "10px"};
+              font-size: ${isLandscape ? "13px" : "10px"};
               color: #64748b;
-              margin-bottom: ${isA5 ? "6px" : "4px"};
+              margin-bottom: ${isLandscape ? "6px" : "4px"};
             }
             .qr-container {
               position: relative;
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              margin: ${isSticker ? "1px 0" : "4px 0"};
+              margin: 4px 0;
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isA5 ? "-18px" : isSticker ? "-12px" : "-16px"};
+              left: ${isLandscape ? "-18px" : "-16px"};
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
@@ -1743,10 +1761,10 @@ export default function MasterAdminPage() {
             }
             .qr-wrap {
               display: inline-block;
-              padding: ${isA5 ? "10px" : isSticker ? "3px" : "6px"};
+              padding: ${isLandscape ? "10px" : "6px"};
               background: #ffffff;
-              border: ${isSticker ? "1.5px solid #e2e8f0" : "2px solid #e2e8f0"};
-              border-radius: ${isA5 ? "18px" : isSticker ? "8px" : "14px"};
+              border: 2px solid #e2e8f0;
+              border-radius: ${isLandscape ? "18px" : "14px"};
             }
             .qr-img {
               width: ${qrSize};
@@ -1754,20 +1772,20 @@ export default function MasterAdminPage() {
               display: block;
             }
             .nfc-badge {
-              font-size: ${isA5 ? "12px" : isSticker ? "8px" : "9px"};
+              font-size: ${isLandscape ? "12px" : "9px"};
               font-weight: 700;
               color: #0369a1;
               background: #e0f2fe;
-              padding: ${isA5 ? "4px 14px" : isSticker ? "1px 6px" : "2px 10px"};
+              padding: ${isLandscape ? "4px 14px" : "2px 10px"};
               border-radius: 9999px;
               display: inline-block;
             }
             .footer {
-              margin-top: ${isSticker ? "2px" : "6px"};
-              font-size: ${isA5 ? "11px" : isSticker ? "8px" : "9px"};
+              margin-top: 6px;
+              font-size: ${isLandscape ? "11px" : "9px"};
               color: #94a3b8;
               border-top: 1px solid #f1f5f9;
-              padding-top: ${isSticker ? "2px" : "4px"};
+              padding-top: 4px;
               width: 100%;
             }
             .footer strong { color: #475569; }
@@ -1779,13 +1797,25 @@ export default function MasterAdminPage() {
               ${pageItems.map((item) => {
                 const title = item.business?.name || "Review Us On Google";
                 const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+                const badgeLabel = isStickerA5
+                  ? "★ GOOGLE REVIEW STICKER (A5) ★"
+                  : isStickerA6
+                  ? "★ REVIEW STICKER (A6) ★"
+                  : isTent
+                  ? "Table-Tent Standee"
+                  : isA5
+                  ? "A5 Countertop Standee"
+                  : "A6 Acrylic Standee";
                 return `
                   <div class="standee-card">
                     <div class="accent-bar"></div>
                     ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
-                    <div style="font-size: ${isSticker ? "8px" : "9px"}; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
-                      ${isTent ? "Table-Tent Standee" : isA5 ? "A5 Countertop Standee" : isSticker ? "Review Sticker" : "A6 Acrylic Standee"}
-                    </div>
+                    ${isStickerA5 || isStickerA6 ? `<div class="sticker-badge">${badgeLabel}</div>` : ""}
+                    ${(!isTent && !isStickerA5 && !isStickerA6) ? `
+                      <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
+                        ${badgeLabel}
+                      </div>
+                    ` : ""}
                     <h1>${title}</h1>
                     <div class="sub">${sub}</div>
                     <div class="stars">★★★★★</div>
@@ -6423,16 +6453,25 @@ export default function MasterAdminPage() {
                       batchStandeeLayout === "TENT" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Table-Tent (Foldable)
+                    Table-Tent (2 / Sheet)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBatchStandeeLayout("STICKER")}
+                    onClick={() => setBatchStandeeLayout("STICKER_A5")}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
-                      batchStandeeLayout === "STICKER" ? "bg-white text-blue-600 shadow-sm font-bold border border-slate-200" : "text-slate-600 hover:text-slate-900"
+                      batchStandeeLayout === "STICKER_A5" ? "bg-white text-emerald-600 shadow-sm font-bold border border-emerald-200" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
-                    Stickers (8 / Sheet)
+                    Sticker A5 (2 / Sheet)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBatchStandeeLayout("STICKER_A6")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      batchStandeeLayout === "STICKER_A6" ? "bg-white text-emerald-600 shadow-sm font-bold border border-emerald-200" : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Sticker A6 (4 / Sheet)
                   </button>
                 </div>
 
@@ -6443,7 +6482,13 @@ export default function MasterAdminPage() {
                 >
                   <Printer className="w-4 h-4" />
                   <span>
-                    Print {batchStandeeLayout === "A5" ? "A5 (2/sheet)" : batchStandeeLayout === "TENT" ? "Table-Tents" : batchStandeeLayout === "STICKER" ? "Stickers (8/sheet)" : "A6 Acrylic (4/sheet)"}
+                    Print {
+                      batchStandeeLayout === "A5" ? "A5 Standee (2/sheet)" :
+                      batchStandeeLayout === "STICKER_A5" ? "A5 Sticker (2/sheet)" :
+                      batchStandeeLayout === "STICKER_A6" ? "A6 Sticker (4/sheet)" :
+                      batchStandeeLayout === "TENT" ? "Table-Tents (2/sheet)" :
+                      "A6 Acrylic (4/sheet)"
+                    }
                   </span>
                 </button>
 
@@ -6466,12 +6511,8 @@ export default function MasterAdminPage() {
               <div className="p-12 text-center text-slate-400 text-xs">No standees available to print.</div>
             ) : (
               <div className={`grid gap-4 max-h-[65vh] overflow-y-auto p-2 ${
-                batchStandeeLayout === "A5"
+                (batchStandeeLayout === "A5" || batchStandeeLayout === "TENT" || batchStandeeLayout === "STICKER_A5")
                   ? "grid-cols-1 sm:grid-cols-2"
-                  : batchStandeeLayout === "TENT"
-                  ? "grid-cols-1 sm:grid-cols-2"
-                  : batchStandeeLayout === "STICKER"
-                  ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-6"
                   : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
               }`}>
                 {batchQrList.map((item) => {
