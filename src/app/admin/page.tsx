@@ -1931,6 +1931,123 @@ export default function MasterAdminPage() {
 
     setTimeout(triggerPrint, 350);
   };
+
+  const handleExportBatchSvg = () => {
+    if (batchQrList.length === 0) return;
+    const poweredBy = globalBranding.poweredByText || "Unbox Studio";
+
+    const isA5 = batchStandeeLayout === "A5";
+    const isTent = batchStandeeLayout === "TENT";
+    const isStickerA5 = batchStandeeLayout === "STICKER_A5";
+    const isStickerA6 = batchStandeeLayout === "STICKER_A6" || (batchStandeeLayout as string) === "STICKER";
+    const isLandscape = isA5 || isTent || isStickerA5;
+
+    const perPage = isLandscape ? 2 : 4;
+    const pageItems = batchQrList.slice(0, perPage);
+
+    const width = isLandscape ? 1122 : 794;
+    const height = isLandscape ? 794 : 1122;
+    const widthMm = isLandscape ? "297mm" : "210mm";
+    const heightMm = isLandscape ? "210mm" : "297mm";
+
+    const gradStops = isStickerA5 || isStickerA6
+      ? `<stop offset="0%" stop-color="#059669" /><stop offset="50%" stop-color="#10b981" /><stop offset="100%" stop-color="#06b6d4" />`
+      : `<stop offset="0%" stop-color="#2563eb" /><stop offset="50%" stop-color="#4f46e5" /><stop offset="100%" stop-color="#06b6d4" />`;
+
+    const accentFill = isStickerA5 || isStickerA6 ? "#059669" : "#2563eb";
+
+    let cardsSvg = "";
+
+    if (isLandscape) {
+      const cardW = 520;
+      const cardH = 742;
+      const coords = [{ x: 26, y: 26 }, { x: 576, y: 26 }];
+      pageItems.forEach((item, idx) => {
+        const c = coords[idx];
+        if (!c) return;
+        const bLabel = isStickerA5 ? "Review Sticker (A5)" : isTent ? "Table-Tent Standee" : "A5 Countertop Standee";
+        const title = item.business?.name || "Review Us On Google";
+        const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+        cardsSvg += `
+          <g transform="translate(${c.x}, ${c.y})">
+            <rect x="0" y="0" width="${cardW}" height="${cardH}" rx="24" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,4" />
+            <path d="M 0 24 A 24 24 0 0 1 24 0 L ${cardW - 24} 0 A 24 24 0 0 1 ${cardW} 24 L ${cardW} 9 L 0 9 Z" fill="url(#brandGrad)" />
+            <text x="${cardW/2}" y="36" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="900" fill="${accentFill}" letter-spacing="0.08em">${bLabel}</text>
+            <text x="${cardW/2}" y="76" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="34" font-weight="800" fill="#0f172a">${title.replace(/&/g, '&amp;')}</text>
+            <text x="${cardW/2}" y="104" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16" font-weight="500" fill="#64748b">${sub.replace(/&/g, '&amp;')}</text>
+            <text x="${cardW/2}" y="142" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="32" fill="#f59e0b" letter-spacing="6">★★★★★</text>
+            <g transform="translate(${cardW/2}, ${cardH/2 + 25})">
+              <text x="-195" y="0" text-anchor="middle" font-family="monospace" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="0.12em" transform="rotate(-90 -195 0)">${item.tagCode}</text>
+              <rect x="-180" y="-180" width="360" height="360" rx="20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+              <image href="${item.qrDataUrl}" x="-165" y="-165" width="330" height="330" preserveAspectRatio="xMidYMid meet" />
+            </g>
+            <g transform="translate(${cardW/2}, ${cardH - 58})">
+              <rect x="-130" y="-18" width="260" height="36" rx="18" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" />
+              <text x="0" y="5" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
+            </g>
+            <line x1="24" y1="${cardH - 28}" x2="${cardW - 24}" y2="${cardH - 28}" stroke="#f1f5f9" stroke-width="1" />
+            <text x="${cardW/2}" y="${cardH - 12}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${poweredBy.replace(/&/g, '&amp;')}</tspan></text>
+          </g>
+        `;
+      });
+    } else {
+      const cardW = 360;
+      const cardH = 520;
+      const coords = [
+        { x: 22, y: 22 },
+        { x: 412, y: 22 },
+        { x: 22, y: 570 },
+        { x: 412, y: 570 }
+      ];
+      pageItems.forEach((item, idx) => {
+        const c = coords[idx];
+        if (!c) return;
+        const bLabel = isStickerA6 ? "Review Sticker (A6)" : "A6 Acrylic Standee";
+        const title = item.business?.name || "Review Us On Google";
+        const sub = item.business?.city || "Tap Phone (NFC) or Scan QR";
+        cardsSvg += `
+          <g transform="translate(${c.x}, ${c.y})">
+            <rect x="0" y="0" width="${cardW}" height="${cardH}" rx="20" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,3" />
+            <path d="M 0 20 A 20 20 0 0 1 20 0 L ${cardW - 20} 0 A 20 20 0 0 1 ${cardW} 20 L ${cardW} 7 L 0 7 Z" fill="url(#brandGrad)" />
+            <text x="${cardW/2}" y="28" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="900" fill="${accentFill}" letter-spacing="0.08em">${bLabel}</text>
+            <text x="${cardW/2}" y="56" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" font-weight="800" fill="#0f172a">${title.replace(/&/g, '&amp;')}</text>
+            <text x="${cardW/2}" y="76" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="13" font-weight="500" fill="#64748b">${sub.replace(/&/g, '&amp;')}</text>
+            <text x="${cardW/2}" y="104" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="24" fill="#f59e0b" letter-spacing="4">★★★★★</text>
+            <g transform="translate(${cardW/2}, ${cardH/2 + 20})">
+              <text x="-135" y="0" text-anchor="middle" font-family="monospace" font-size="8" font-weight="700" fill="#94a3b8" letter-spacing="0.12em" transform="rotate(-90 -135 0)">${item.tagCode}</text>
+              <rect x="-125" y="-125" width="250" height="250" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" />
+              <image href="${item.qrDataUrl}" x="-115" y="-115" width="230" height="230" preserveAspectRatio="xMidYMid meet" />
+            </g>
+            <g transform="translate(${cardW/2}, ${cardH - 44})">
+              <rect x="-95" y="-14" width="190" height="28" rx="14" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1" />
+              <text x="0" y="4" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="700" fill="#0369a1">📲 Tap NFC or Scan QR</text>
+            </g>
+            <line x1="16" y1="${cardH - 22}" x2="${cardW - 16}" y2="${cardH - 22}" stroke="#f1f5f9" stroke-width="1" />
+            <text x="${cardW/2}" y="${cardH - 8}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11.5" fill="#94a3b8">Powered by <tspan font-weight="700" fill="#475569">${poweredBy.replace(/&/g, '&amp;')}</tspan></text>
+          </g>
+        `;
+      });
+    }
+
+    const fullSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${width} ${height}" width="${widthMm}" height="${heightMm}">
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      ${gradStops}
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" fill="#ffffff" />
+  ${cardsSvg}
+</svg>`;
+
+    const blob = new Blob([fullSvg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `print-layout-${batchStandeeLayout.toLowerCase()}.svg`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const handleExportNfcCsv = (batchFilter?: string) => {
     const listToExport = tags.filter((t) => (batchFilter && batchFilter !== "ALL" ? t.batchCode === batchFilter : true));
     if (listToExport.length === 0) {
@@ -6807,6 +6924,16 @@ export default function MasterAdminPage() {
                     Sticker A6 (4 / Sheet)
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportBatchSvg}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95"
+                  title="Download vector SVG of the print layout"
+                >
+                  <Download className="w-4 h-4 text-slate-600" />
+                  <span>Export SVG</span>
+                </button>
 
                 <button
                   type="button"
