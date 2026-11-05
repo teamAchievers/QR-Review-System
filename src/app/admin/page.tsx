@@ -1366,11 +1366,13 @@ export default function MasterAdminPage() {
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "0";
+    iframe.style.width = "148mm";
+    iframe.style.height = "210mm";
     iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document;
@@ -1609,55 +1611,58 @@ export default function MasterAdminPage() {
     const isStickerA5 = batchStandeeLayout === "STICKER_A5";
     const isStickerA6 = batchStandeeLayout === "STICKER_A6" || (batchStandeeLayout as string) === "STICKER";
 
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
-
     // Both A5 Standee, Table-Tent, and A5 Sticker fit 2 per page in A4 Landscape!
     // A6 Standee and A6 Sticker fit 4 per page in A4 Portrait!
     const isLandscape = isA5 || isTent || isStickerA5;
     const perPage = isLandscape ? 2 : 4;
     const pageSize = isLandscape ? "A4 landscape" : "A4 portrait";
 
-    let gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
-    let cardHeight = "136mm";
-    let qrSize = "62mm";
+    // Give iframe real physical A4 dimensions so media queries and mm units compute accurately!
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "0";
+    iframe.style.width = isLandscape ? "297mm" : "210mm";
+    iframe.style.height = isLandscape ? "210mm" : "297mm";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    // Full page height (A4 height minus 12mm total margins):
+    // Portrait: 297mm - 12mm = 285mm
+    // Landscape: 210mm - 12mm = 198mm
+    const pageHeight = isLandscape ? "198mm" : "285mm";
+
+    // Grid CSS:
+    // A4 Portrait: 2 columns x 2 rows, filling entire 285mm height!
+    // A4 Landscape: 2 columns x 1 row, filling entire 198mm height!
+    let gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
+    let qrSize = "78mm";
     let titleSize = "15px";
-    let subDisplay = "block";
-    let cardBorder = "2px dashed #94a3b8";
+    let cardBorder = "2.5px dashed #94a3b8";
 
     if (isA5 || isStickerA5) {
-      // 2 per sheet in A4 Landscape (136mm x 188mm each) - QR covers 44% of card height
-      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
-      cardHeight = "188mm";
-      qrSize = "82mm";
+      // 2 per sheet in A4 Landscape (138mm x 198mm each) - QR covers 54% height and 76% width!
+      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
+      qrSize = "105mm";
       titleSize = "20px";
-      subDisplay = "block";
-      cardBorder = isStickerA5 ? "2px dashed #059669" : "2px dashed #94a3b8";
+      cardBorder = isStickerA5 ? "2.5px dashed #059669" : "2.5px dashed #94a3b8";
     } else if (isTent) {
-      // 2 Table-tents side-by-side in A4 Landscape - QR covers 43% of card height
-      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 10mm;";
-      cardHeight = "188mm";
-      qrSize = "80mm";
+      // 2 Table-tents in A4 Landscape - QR covers 52% height and 74% width!
+      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; gap: 8mm;";
+      qrSize = "100mm";
       titleSize = "18px";
-      subDisplay = "block";
-      cardBorder = "2px dashed #2563eb";
+      cardBorder = "2.5px dashed #2563eb";
     } else if (isStickerA6) {
-      // 4 A6 stickers in A4 portrait (2 columns x 2 rows) - QR covers 46% of card height
-      gridCss = "grid-template-columns: repeat(2, 1fr); gap: 6mm;";
-      cardHeight = "136mm";
-      qrSize = "62mm";
+      // 4 A6 stickers in A4 portrait (2 cols x 2 rows) - QR covers 56% height and 82% width!
+      gridCss = "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6mm;";
+      qrSize = "78mm";
       titleSize = "15px";
-      subDisplay = "block";
-      cardBorder = "2px dashed #059669";
+      cardBorder = "2.5px dashed #059669";
     }
 
     // Chunk into even-number pages so every page has exact even prints without spillover
@@ -1681,32 +1686,36 @@ export default function MasterAdminPage() {
           <style>
             @page {
               size: ${pageSize};
-              margin: 8mm;
+              margin: 6mm;
             }
-            * {
+            *, *::before, *::after {
               box-sizing: border-box;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
-            body {
-              margin: 0; padding: 0; background: #ffffff;
+            html, body {
+              margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             }
             .print-page {
               display: grid;
               ${gridCss}
-              box-sizing: border-box;
               width: 100%;
+              height: ${pageHeight};
+              min-height: ${pageHeight};
+              box-sizing: border-box;
               page-break-inside: avoid;
-            }
-            .page-break {
               page-break-after: always;
               break-after: page;
+            }
+            .print-page:last-child {
+              page-break-after: auto;
+              break-after: auto;
             }
             .standee-card {
               border: ${cardBorder};
               border-radius: ${isStickerA5 ? "28px" : isStickerA6 ? "20px" : "18px"};
-              padding: ${isLandscape ? "28px 24px" : "16px 14px"};
+              padding: ${isLandscape ? "10mm 10mm 8mm" : "6mm 6mm 5mm"};
               text-align: center;
               position: relative;
               background: #ffffff;
@@ -1715,8 +1724,10 @@ export default function MasterAdminPage() {
               flex-direction: column;
               align-items: center;
               justify-content: space-between;
-              height: ${cardHeight};
+              height: 100%;
+              width: 100%;
               box-sizing: border-box;
+              overflow: hidden;
             }
             .accent-bar {
               position: absolute; top: 0; left: 0; right: 0;
@@ -1728,11 +1739,18 @@ export default function MasterAdminPage() {
                   : "linear-gradient(to right, #2563eb, #4f46e5, #06b6d4)"
               };
             }
+            .card-header {
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              margin-bottom: 2mm;
+            }
             .tent-badge {
               display: ${isTent ? "inline-block" : "none"};
               background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 9px;
               letter-spacing: 0.12em; padding: 2px 10px; border-radius: 4px; border: 1px dashed #93c5fd;
-              margin-bottom: 3px; text-transform: uppercase;
+              margin-bottom: 2px; text-transform: uppercase;
             }
             .sticker-badge {
               display: ${isStickerA5 || isStickerA6 ? "inline-block" : "none"};
@@ -1740,76 +1758,95 @@ export default function MasterAdminPage() {
               letter-spacing: 0.12em; padding: 2px 10px; border-radius: 9999px; border: 1px solid #a7f3d0;
               margin-bottom: 2px; text-transform: uppercase;
             }
-            .stars {
-              color: #f59e0b;
-              font-size: ${isLandscape ? "26px" : "18px"};
-              letter-spacing: 4px;
-              margin: 3px 0;
-            }
-            h1 {
-              font-size: ${titleSize};
+            .header-label {
+              font-size: ${isLandscape ? "10px" : "8.5px"};
               font-weight: 800;
+              text-transform: uppercase;
+              color: #2563eb;
+              letter-spacing: 0.06em;
+              margin-bottom: 1px;
+            }
+            .card-title {
+              font-size: ${titleSize};
+              font-weight: 900;
               color: #0f172a;
-              margin: 2px 0;
+              margin: 1mm 0 0.5mm;
               line-height: 1.15;
             }
-            .sub {
-              display: ${subDisplay};
-              font-size: ${isLandscape ? "13px" : "10px"};
+            .card-sub {
+              font-size: ${isLandscape ? "11px" : "9px"};
               color: #64748b;
-              margin-bottom: ${isLandscape ? "6px" : "4px"};
+              margin-bottom: 1mm;
+            }
+            .stars {
+              color: #f59e0b;
+              font-size: ${isLandscape ? "24px" : "17px"};
+              letter-spacing: 3px;
+              margin: 0.5mm 0;
+              line-height: 1;
             }
             .qr-container {
               position: relative;
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              margin: 4px 0;
+              margin: auto 0;
             }
             .vertical-tag-id {
               position: absolute;
-              left: ${isLandscape ? "-22px" : "-18px"};
+              left: ${isLandscape ? "-22px" : "-19px"};
               top: 50%;
               transform: translateY(-50%) rotate(180deg);
               writing-mode: vertical-rl;
               font-family: monospace;
               font-size: 8px;
               font-weight: 700;
-              letter-spacing: 0.1em;
+              letter-spacing: 0.12em;
               color: #64748b;
               text-transform: uppercase;
               user-select: none;
             }
             .qr-wrap {
               display: inline-block;
-              padding: ${isLandscape ? "8px" : "5px"};
+              padding: ${isLandscape ? "6px" : "5px"};
               background: #ffffff;
-              border: 2px solid #e2e8f0;
-              border-radius: ${isLandscape ? "20px" : "14px"};
+              border: 2.5px solid #cbd5e1;
+              border-radius: ${isLandscape ? "22px" : "16px"};
+              box-shadow: 0 4px 14px rgba(0,0,0,0.06);
             }
             .qr-img {
-              width: ${qrSize};
-              height: ${qrSize};
+              width: ${qrSize} !important;
+              height: ${qrSize} !important;
+              max-width: ${qrSize} !important;
+              max-height: ${qrSize} !important;
               display: block;
             }
+            .card-footer {
+              width: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              margin-top: 2mm;
+            }
             .nfc-badge {
-              font-size: ${isLandscape ? "12px" : "9px"};
-              font-weight: 700;
+              font-size: ${isLandscape ? "11px" : "8.5px"};
+              font-weight: 800;
               color: #0369a1;
               background: #e0f2fe;
-              padding: ${isLandscape ? "4px 14px" : "2px 10px"};
+              padding: ${isLandscape ? "3px 12px" : "2px 8px"};
               border-radius: 9999px;
               display: inline-block;
+              margin-bottom: 1.5mm;
             }
-            .footer {
-              margin-top: 6px;
-              font-size: ${isLandscape ? "11px" : "9px"};
+            .footer-brand {
+              font-size: ${isLandscape ? "10px" : "8px"};
               color: #94a3b8;
               border-top: 1px solid #f1f5f9;
-              padding-top: 4px;
+              padding-top: 1.5mm;
               width: 100%;
+              text-align: center;
             }
-            .footer strong { color: #475569; }
+            .footer-brand strong { color: #475569; }
           </style>
         </head>
         <body>
@@ -1830,27 +1867,27 @@ export default function MasterAdminPage() {
                 return `
                   <div class="standee-card">
                     <div class="accent-bar"></div>
-                    ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
-                    ${isStickerA5 || isStickerA6 ? `<div class="sticker-badge">${badgeLabel}</div>` : ""}
-                    ${(!isTent && !isStickerA5 && !isStickerA6) ? `
-                      <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 1px;">
-                        ${badgeLabel}
-                      </div>
-                    ` : ""}
-                    <h1>${title}</h1>
-                    <div class="sub">${sub}</div>
-                    <div class="stars">★★★★★</div>
+                    <div class="card-header">
+                      ${isTent ? '<div class="tent-badge">✂️ FOLD HERE FOR TABLE-TENT</div>' : ""}
+                      ${isStickerA5 || isStickerA6 ? `<div class="sticker-badge">${badgeLabel}</div>` : ""}
+                      ${(!isTent && !isStickerA5 && !isStickerA6) ? `
+                        <div class="header-label">${badgeLabel}</div>
+                      ` : ""}
+                      <h1 class="card-title">${title}</h1>
+                      <div class="card-sub">${sub}</div>
+                      <div class="stars">★★★★★</div>
+                    </div>
                     <div class="qr-container">
                       <div class="vertical-tag-id">${item.tagCode}</div>
                       <div class="qr-wrap">
                         <img src="${item.qrDataUrl}" class="qr-img" alt="Standee QR" />
                       </div>
                     </div>
-                    <div>
+                    <div class="card-footer">
                       <span class="nfc-badge">📲 Tap Phone or Scan QR</span>
-                    </div>
-                    <div class="footer">
-                      Powered by <strong>${poweredBy}</strong>
+                      <div class="footer-brand">
+                        Powered by <strong>${poweredBy}</strong>
+                      </div>
                     </div>
                   </div>
                 `;
@@ -1862,13 +1899,21 @@ export default function MasterAdminPage() {
     `);
     doc.close();
 
-    iframe.contentWindow?.focus();
-    setTimeout(() => {
-      iframe.contentWindow?.print();
+    const triggerPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.error("Print trigger error:", e);
+      }
       setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    }, 350);
+        try {
+          if (iframe.parentNode) document.body.removeChild(iframe);
+        } catch {}
+      }, 2000);
+    };
+
+    setTimeout(triggerPrint, 400);
   };
 
   const handleExportNfcCsv = (batchFilter?: string) => {
